@@ -2,7 +2,7 @@
   "name": "Análise KPI - Manutenção Kanban",
   "short_name": "Kanban KPI",
   "description": "Sistema Kanban de Dupla Caixa para Gestão de Stock e KPI de Manutenção",
-  "start_url": "./kanban-kpi-analyzer-v4_10_0.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
