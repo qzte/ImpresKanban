@@ -1,6 +1,6 @@
 /* =====================================================
    SERVICE WORKER — Kanban KPI Analyzer
-   Versão: 4.10.0
+   Versão: 4.11.0
    ------------------------------------------------
    Estratégia:
    - App shell (HTML, manifest, ícones): cache-first,
@@ -13,11 +13,12 @@
      versão invalida automaticamente o cache antigo
    ===================================================== */
 
-const APP_VERSION = '4.10.0';
+const APP_VERSION = '4.11.0';
 const CACHE_NAME = `kanban-kpi-v${APP_VERSION}`;
 
 const APP_SHELL = [
-    './kanban-kpi-analyzer-v4_10_0.html',
+    './',
+    './index.html',
     './manifest.json',
     './icons/icon-192.png',
     './icons/icon-512.png'
@@ -72,6 +73,18 @@ self.addEventListener('activate', (event) => {
 // ==========================================
 // FETCH — cache-first com atualização em segundo plano
 // ==========================================
+// Domínios CDN cujas respostas podem ser guardadas em cache
+const CDN_HOSTS = [
+    'cdnjs.cloudflare.com',
+    'fonts.googleapis.com',
+    'fonts.gstatic.com'
+];
+
+function urlCacheavel(url) {
+    const u = new URL(url);
+    return u.origin === self.location.origin || CDN_HOSTS.includes(u.hostname);
+}
+
 self.addEventListener('fetch', (event) => {
     // Apenas GET é cacheável
     if (event.request.method !== 'GET') return;
@@ -80,14 +93,26 @@ self.addEventListener('fetch', (event) => {
         caches.match(event.request).then((cachedResponse) => {
             const networkFetch = fetch(event.request)
                 .then((networkResponse) => {
-                    // Só guarda respostas válidas (ou opacas, no caso de recursos cross-origin no-cors)
-                    if (networkResponse && (networkResponse.ok || networkResponse.type === 'opaque')) {
+                    // Só guarda respostas válidas (ou opacas, p.ex. fonts no-cors),
+                    // e apenas de origens conhecidas — evita crescimento
+                    // ilimitado do cache com recursos externos arbitrários
+                    if (networkResponse &&
+                        (networkResponse.ok || networkResponse.type === 'opaque') &&
+                        urlCacheavel(event.request.url)) {
                         const clone = networkResponse.clone();
                         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
                     }
                     return networkResponse;
                 })
-                .catch(() => cachedResponse); // Offline e sem cache prévio: falha silenciosa
+                .catch(() => {
+                    // Offline: fallback para cache; navegações sem cache
+                    // recebem o app shell (index.html)
+                    if (cachedResponse) return cachedResponse;
+                    if (event.request.mode === 'navigate') {
+                        return caches.match('./index.html');
+                    }
+                    return undefined;
+                });
 
             // Cache-first: responde imediatamente se existir, atualiza em fundo
             return cachedResponse || networkFetch;
