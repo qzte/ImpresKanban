@@ -4,6 +4,48 @@
 
 ---
 
+## v4.11.2 — 03 Ago 2026
+
+### 🚑 Revisão da app: PWA reparada + integridade de dados
+
+**PWA estava efetivamente partida.** O `APP_SHELL` do Service Worker apontava para o ficheiro versionado (`kanban-kpi-analyzer-v4_11_1.html`) e para `./icons/icon-192.png` — pasta que não existe no repositório. Como `cache.addAll()` rejeita se **um** dos recursos falhar, a instalação do SW abortava sempre: a app nunca funcionou offline nem era realmente instalável, apesar de o registo aparecer como bem-sucedido na consola.
+
+- **Fix:** `APP_SHELL` passa a `./index.html` + ícones da raiz (`./icon-192.png`, `./icon-512.png`)
+- **Fix:** `manifest.json` — caminhos dos ícones corrigidos e adicionadas as variantes `maskable` (os ficheiros já existiam no repositório mas não estavam declarados)
+- **SW: fallback de navegação offline** e **cache restrito** a same-origin + CDNs conhecidas — anunciados na v4.11.0, mas ausentes do `sw.js`; agora implementados
+- ✅ Verificado em Chromium: com o servidor desligado, `index.html` e rotas desconhecidas são servidos a partir do cache
+
+### 🛡️ Integridade dos dados
+- **Fix:** era possível gravar um registo com um serviço ou artigo que não existe nas referências. O campo **Armazém** é `readonly` e, por isso, está isento da validação nativa do browser — o registo era aceite com armazém, descrição e local vazios, e depois aparecia em branco nos dashboards e nos relatórios PDF. A submissão passa a exigir serviço e artigo válidos
+- Os valores gravados passam a vir das referências (forma canónica), e não do que ficou no ecrã
+
+### 🐛 Correções
+- **Referências deixam de falhar por tipo:** `ID_SERVICO` e `CODIGO_ERRO` numéricos vindos do Excel eram comparados com `===` contra strings — o serviço aparecia como "não encontrado" e o dashboard mostrava o código do erro em vez da descrição. Novas funções `encontrarServico()`, `encontrarArtigo()` e `encontrarErro()` comparam como texto (7 pesquisas duplicadas de erro substituídas por uma)
+- **Código de artigo sem zeros à esquerda** (`12345` vs `0000012345`) passa a ser reconhecido e gravado na forma canónica
+- **Gravar uma edição** já não mostra "Edição cancelada" por cima da confirmação de sucesso
+- **`ESTADO_CODIGO`** tolerante ao tipo e à caixa da célula, à semelhança do que a v4.9.9 fez nas restantes tabelas
+- **"Limpar referências"** passa a limpar também utilizadores e erros — ficavam em memória e no `localStorage`, com os dropdowns preenchidos
+- **`escapeHTML(undefined)`** devolve `''` em vez de escrever literalmente "undefined" nas células de registos antigos
+
+### 🔒 Segurança e robustez
+- `limparTodosDados()` deixa de usar `localStorage.clear()`, que apagava também dados de outras páginas alojadas na mesma origem; remove apenas as chaves da aplicação (`CHAVES_STORAGE_APP`)
+- `gerarUUID()` usa `crypto.randomUUID()` quando disponível
+- Mensagens acionáveis quando o **espaço de armazenamento esgota** (o registo não é gravado — o utilizador tem de saber) e quando a **biblioteca de Excel da CDN** não está disponível
+
+### 🧹 Limpeza
+- `atualizarTabela()` removida — operava sobre `#dataTable`, elemento removido na v3.6.1; era código morto com saída imediata (−78 linhas)
+
+---
+
+## v4.11.1 — 19 Jul 2026
+
+### 🔒 Correções de segurança (auditoria)
+- **SRI (`sha384`) + `crossorigin="anonymous"`** nos 3 scripts CDN (xlsx 0.18.5, jsPDF 2.5.1, autotable 3.5.31)
+- `mostrarAlerta()` e `mostrarAlertaReferencia()` escapam a mensagem com `escapeHTML()` antes do `innerHTML` (`<br>` e `\n` intencionais preservados)
+- `escapeHTML()` aplicado a `origem.Nome` nos botões de filtro de origem e à lista de origens do `infoText`
+
+---
+
 ## v4.11.0 — 18 Jul 2026
 
 ### 📌 PWA estável + Service Worker robusto
