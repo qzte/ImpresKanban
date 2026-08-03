@@ -4,6 +4,18 @@
 
 ---
 
+## v4.11.3 — 03 Ago 2026
+
+### 🎨 Identidade visual: ícone Kkpi
+- Ícones da app substituídos pelo logótipo **Kkpi** (fundo vermelho, lettering branco), nas 4 variantes declaradas no `manifest.json`: `192`/`512` normais e `192`/`512` *maskable*
+- As variantes *maskable* têm o fundo a sangrar e o lettering dentro da zona segura (80% central), para não serem cortadas pelas máscaras do Android
+- **Ícone ligado também como `favicon` e `apple-touch-icon`** — a app não tinha nenhum e o pedido a `/favicon.ico` devolvia 404
+- O bump de versão renova o `CACHE_NAME` do Service Worker, para que as PWA já instaladas recebam os ícones novos na próxima visita online
+
+> ℹ️ Os ficheiros PNG foram reconstruídos a partir do logótipo fornecido (Liberation Sans Bold). Para usar o ficheiro original exacto, basta substituir os quatro `icon-*.png` na raiz — os nomes e caminhos mantêm-se.
+
+---
+
 ## v4.11.2 — 03 Ago 2026
 
 ### 🚑 Revisão da app: PWA reparada + integridade de dados
