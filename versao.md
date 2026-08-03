@@ -12,7 +12,7 @@
 - **Ícone ligado também como `favicon` e `apple-touch-icon`** — a app não tinha nenhum e o pedido a `/favicon.ico` devolvia 404
 - O bump de versão renova o `CACHE_NAME` do Service Worker, para que as PWA já instaladas recebam os ícones novos na próxima visita online
 
-> ℹ️ Os ficheiros PNG foram reconstruídos a partir do logótipo fornecido (Liberation Sans Bold). Para usar o ficheiro original exacto, basta substituir os quatro `icon-*.png` na raiz — os nomes e caminhos mantêm-se.
+> ℹ️ `icon-192.png` e `icon-512.png` são os ficheiros originais do logótipo. As variantes *maskable* são derivadas deles por recorte do lettering e reposicionamento na zona segura — mesmos letterforms, mesmo vermelho (`#FF0000`).
 
 ---
 
