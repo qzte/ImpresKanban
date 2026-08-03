@@ -2,7 +2,7 @@
 
 > Ferramenta web **100% offline** para controlo e análise de Kanban e gestão de KPI para equipas de manutenção de supermercados.
 
-**Versão atual:** 4.11.2 — servida como `index.html` (cópia versionada: `kanban-kpi-analyzer-v4_11_2.html`)
+**Versão atual:** 4.11.3 — servida como `index.html` (cópia versionada: `kanban-kpi-analyzer-v4_11_3.html`)
 
 ---
 
@@ -152,17 +152,17 @@ Ficheiro Excel (`.xlsx`) com as seguintes folhas obrigatórias:
 git status
 
 # 2. Adicionar alterações
-git add index.html kanban-kpi-analyzer-v4_11_2.html versao.md README.md
+git add index.html kanban-kpi-analyzer-v4_11_3.html versao.md README.md
 
 # 3. Commit com mensagem descritiva
-git commit -m "fix(pwa): app shell offline | kanban-kpi-analyzer-v4_11_2.html"
+git commit -m "feat(icone): logótipo Kkpi | kanban-kpi-analyzer-v4_11_3.html"
 
 # 4. Enviar para GitHub
 git push
 
 # 5. Criar tag de versão
-git tag -a v4.11.2 -m "Descrição curta da alteração"
-git push origin v4.11.2
+git tag -a v4.11.3 -m "Descrição curta da alteração"
+git push origin v4.11.3
 ```
 
 ### Localização obrigatória das 5 actualizações de versão no HTML
@@ -193,7 +193,8 @@ Consulte o ficheiro [`versao.md`](./versao.md) para o histórico completo.
 
 | Versão | Data | Destaque |
 |---|---|---|
-| **4.11.2** | 03 Ago 2026 | 🚑 PWA reparada (app shell nunca instalava) + validação de serviço/artigo nas referências |
+| **4.11.3** | 03 Ago 2026 | 🎨 Ícone Kkpi nas 4 variantes + favicon |
+| 4.11.2 | 03 Ago 2026 | 🚑 PWA reparada (app shell nunca instalava) + validação de serviço/artigo nas referências |
 | 4.11.1 | 19 Jul 2026 | 🔒 SRI nos scripts CDN + escape de mensagens de alerta |
 | 4.11.0 | 18 Jul 2026 | 📌 App servida como `index.html` estável |
 | 4.10.0 | 11 Jul 2026 | 📱 Progressive Web App — instalável e utilizável offline (`manifest.json` + `sw.js`) |
