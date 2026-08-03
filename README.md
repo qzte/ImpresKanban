@@ -2,7 +2,7 @@
 
 > Ferramenta web **100% offline** para controlo e análise de Kanban e gestão de KPI para equipas de manutenção de supermercados.
 
-**Versão atual:** 4.10.0 — `kanban-kpi-analyzer-v4_10_0.html`
+**Versão atual:** 4.11.2 — servida como `index.html` (cópia versionada: `kanban-kpi-analyzer-v4_11_2.html`)
 
 ---
 
@@ -38,7 +38,7 @@ Esta aplicação web permite analisar o trabalho de manutenção do sistema de d
 - ✅ Feedback visual em tempo real
 - ✅ Animações suaves e layout responsivo
 - ✅ 100% offline — sem necessidade de internet
-- ✅ **Progressive Web App (v4.10.0)** — instalável no ecrã inicial (Android/iOS/Desktop) e utilizável offline após a primeira visita online
+- ✅ **Progressive Web App** — instalável no ecrã inicial (Android/iOS/Desktop) e utilizável offline após a primeira visita online
 
 ### Separadores Principais
 
@@ -75,6 +75,8 @@ Preencha os campos obrigatórios e opcionais no separador **📋 Registos → Id
 | Observações | Opcional | Campo de texto livre |
 
 > Quando o Tipo de Erro é **KB Perdido**, o campo **Último Estado do RFID** torna-se obrigatório.
+
+> **Serviço e Artigo têm de existir nas referências** (v4.11.2). O registo só é aceite se o ID do serviço e o código do artigo constarem das tabelas carregadas — é daí que vêm a descrição, o local e o armazém. O código do artigo pode ser escrito sem os zeros à esquerda; é gravado na forma canónica de 10 dígitos.
 
 ### Passo 3: Registo em Batch
 
@@ -118,14 +120,14 @@ Ficheiro Excel (`.xlsx`) com as seguintes folhas obrigatórias:
 | Mozilla Firefox | 88+ |
 | Safari | 14+ |
 
-> **Instalação como app / modo offline (PWA, v4.10.0):** requer HTTPS ou `localhost` — o Service Worker não regista em `file://`. Sem HTTPS, a aplicação continua a funcionar normalmente no browser, apenas sem instalação nem cache offline das bibliotecas CDN.
+> **Instalação como app / modo offline (PWA):** requer HTTPS ou `localhost` — o Service Worker não regista em `file://`. Sem HTTPS, a aplicação continua a funcionar normalmente no browser, apenas sem instalação nem cache offline das bibliotecas CDN.
 
 ### Recursos Utilizados
 - **SheetJS (xlsx.js):** Processamento de ficheiros Excel
 - **jsPDF + AutoTable:** Geração de relatórios PDF
 - **LocalStorage:** Armazenamento local de dados
 - **File API / Blob API:** Upload e download de ficheiros
-- **Service Worker (`sw.js`) + `manifest.json`:** Instalação como PWA e cache-first para funcionamento offline (v4.10.0)
+- **Service Worker (`sw.js`) + `manifest.json`:** Instalação como PWA e cache-first para funcionamento offline
 
 ---
 
@@ -150,17 +152,17 @@ Ficheiro Excel (`.xlsx`) com as seguintes folhas obrigatórias:
 git status
 
 # 2. Adicionar alterações
-git add kanban-kpi-analyzer-v4_10_0.html versao.md README.md
+git add index.html kanban-kpi-analyzer-v4_11_2.html versao.md README.md
 
 # 3. Commit com mensagem descritiva
-git commit -m "feat(pwa): instalação offline | kanban-kpi-analyzer-v4_10_0.html"
+git commit -m "fix(pwa): app shell offline | kanban-kpi-analyzer-v4_11_2.html"
 
 # 4. Enviar para GitHub
 git push
 
 # 5. Criar tag de versão
-git tag -a v4.10.0 -m "Descrição curta da alteração"
-git push origin v4.10.0
+git tag -a v4.11.2 -m "Descrição curta da alteração"
+git push origin v4.11.2
 ```
 
 ### Localização obrigatória das 5 actualizações de versão no HTML
@@ -191,7 +193,10 @@ Consulte o ficheiro [`versao.md`](./versao.md) para o histórico completo.
 
 | Versão | Data | Destaque |
 |---|---|---|
-| **4.10.0** | 11 Jul 2026 | 📱 Progressive Web App — instalável e utilizável offline (`manifest.json` + `sw.js`) |
+| **4.11.2** | 03 Ago 2026 | 🚑 PWA reparada (app shell nunca instalava) + validação de serviço/artigo nas referências |
+| 4.11.1 | 19 Jul 2026 | 🔒 SRI nos scripts CDN + escape de mensagens de alerta |
+| 4.11.0 | 18 Jul 2026 | 📌 App servida como `index.html` estável |
+| 4.10.0 | 11 Jul 2026 | 📱 Progressive Web App — instalável e utilizável offline (`manifest.json` + `sw.js`) |
 | 4.9.13 | 11 Jul 2026 | 📅 Limite de 40 dias no gráfico "Atividade por Dia" |
 | 4.9.12 | 02 Jul 2026 | 🧹 Refactor: filtros rápidos unificados (`calcularIntervaloDataRapido`) |
 | 4.9.11 | 02 Jul 2026 | 🎨 Cores de origem dinâmicas (fix roxo duplicado + badges dinâmicos) |
