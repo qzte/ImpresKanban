@@ -1,6 +1,6 @@
 /* =====================================================
    SERVICE WORKER — Kanban KPI Analyzer
-   Versão: 4.11.1
+   Versão: 4.11.2
    ------------------------------------------------
    Estratégia:
    - App shell (HTML, manifest, ícones): cache-first,
@@ -11,16 +11,24 @@
      Excel/PDF sem ligação à internet)
    - CACHE_NAME está ligado à versão da app: cada bump de
      versão invalida automaticamente o cache antigo
+   - Navegação offline: qualquer pedido de navegação sem
+     correspondência em cache responde com o app shell
+   - Só é cacheado same-origin + CDNs conhecidas: evita
+     crescimento ilimitado do cache com recursos externos
    ===================================================== */
 
-const APP_VERSION = '4.11.1';
+const APP_VERSION = '4.11.2';
 const CACHE_NAME = `kanban-kpi-v${APP_VERSION}`;
 
+// Documento estável servido à PWA. NÃO usar o nome versionado:
+// um bump de versão partiria as instalações já existentes.
+const APP_SHELL_DOC = './index.html';
+
 const APP_SHELL = [
-    './kanban-kpi-analyzer-v4_11_1.html',
+    APP_SHELL_DOC,
     './manifest.json',
-    './icons/icon-192.png',
-    './icons/icon-512.png'
+    './icon-192.png',
+    './icon-512.png'
 ];
 
 const CDN_ASSETS = [
@@ -29,6 +37,22 @@ const CDN_ASSETS = [
     'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js',
     'https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap'
 ];
+
+// Origens externas cujas respostas podem ser guardadas em cache
+const CDN_HOSTS = [
+    'cdnjs.cloudflare.com',
+    'fonts.googleapis.com',
+    'fonts.gstatic.com'
+];
+
+/**
+ * Um pedido só é cacheável se for same-origin ou vier de uma CDN conhecida.
+ * Sem esta restrição, qualquer recurso externo alcançado pela app acabaria
+ * no cache, que cresceria sem limite.
+ */
+function podeSerCacheado(url) {
+    return url.origin === self.location.origin || CDN_HOSTS.includes(url.hostname);
+}
 
 // ==========================================
 // INSTALL — pré-cache do app shell + libs CDN
@@ -78,6 +102,9 @@ self.addEventListener('fetch', (event) => {
     // Apenas GET é cacheável
     if (event.request.method !== 'GET') return;
 
+    const url = new URL(event.request.url);
+    if (!podeSerCacheado(url)) return; // deixa passar para a rede, sem tocar no cache
+
     event.respondWith(
         caches.match(event.request).then((cachedResponse) => {
             const networkFetch = fetch(event.request)
@@ -89,7 +116,13 @@ self.addEventListener('fetch', (event) => {
                     }
                     return networkResponse;
                 })
-                .catch(() => cachedResponse); // Offline e sem cache prévio: falha silenciosa
+                .catch(() => {
+                    // Offline: navegação sem cache próprio cai no app shell
+                    if (event.request.mode === 'navigate') {
+                        return caches.match(APP_SHELL_DOC);
+                    }
+                    return cachedResponse; // undefined se nunca foi cacheado
+                });
 
             // Cache-first: responde imediatamente se existir, atualiza em fundo
             return cachedResponse || networkFetch;
