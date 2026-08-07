@@ -4,6 +4,22 @@
 
 ---
 
+## v4.11.4 — 07 Ago 2026
+
+### 📱 Fix: layout responsivo partido em telemóvel
+
+A app estava efetivamente inutilizável em ecrãs de telemóvel. Causa: a barra de separadores principais (**Registos / Dashboards / Relatorios / Gestão dos Dados**) e as sub-barras de separadores (**Identificação / Batch / Histórico**, **Operacional / Gestão / Qualidade**) eram uma linha `flex` sem `flex-wrap` e sem scroll horizontal. Em ecrãs estreitos, a linha de botões ficava mais larga do que o ecrã e, como nada limitava o overflow horizontal, o browser expandia o **viewport de layout** inteiro para caber a linha — a página inteira passava a renderizar a uma escala reduzida (efeito de "zoom out"), tornando todo o resto da app ilegível e difícil de tocar.
+
+- **Fix:** as 3 barras de separadores passam a usar `flex-wrap: wrap`, pelo que quebram para várias linhas em vez de forçar overflow da página
+- **Fix:** `html`/`body` passam a ter `overflow-x: hidden` como rede de segurança — nenhum elemento futuro poderá voltar a alargar o viewport da página
+- **Fix:** badge de versão do cabeçalho (`header .version`) estava `position: absolute`, ancorada ao canto inferior direito do cabeçalho; quando o subtítulo quebrava para 2/3 linhas em ecrãs estreitos, a badge ficava sobreposta ao texto — passa a `position: static` abaixo dos 768px
+- Separadores (`.main-tab`, `.dashboard-tab`) com padding e tamanho de letra reduzidos abaixo dos 768px, para um aspeto mais compacto em telemóvel
+- Verificado com Chromium em emulação mobile (375×667): sem overflow horizontal em nenhum dos separadores principais, `window.innerWidth` mantém-se em 375px em todos os ecrãs
+
+> ℹ️ O sintoma (app "não funcional" em telemóvel) não era um crash — era o viewport de layout a expandir-se para acomodar uma única linha de botões demasiado larga, o que reduzia a escala de toda a interface.
+
+---
+
 ## v4.11.3 — 03 Ago 2026
 
 ### 🎨 Identidade visual: ícone Kkpi
