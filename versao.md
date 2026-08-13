@@ -4,6 +4,16 @@
 
 ---
 
+## v4.11.5 — 13 Ago 2026
+
+### 🐛 Fix: Descrição do Tipo de Erro em falta no Excel exportado
+
+O ficheiro gerado por **"Exportar para Excel"** (separador Registos) só incluía o **código** do Tipo de Erro (ex.: `5`), não a sua descrição (ex.: `KB Perdido`) — obrigando a cruzar manualmente com `T_Erros` para perceber o que cada registo representava.
+
+- **Fix:** nova coluna **"Tipo Erro Descrição"** no export, a seguir a "Tipo Erro", resolvida via `encontrarErro(r.tipoErro)` (mesma função já usada nos dashboards e relatórios PDF)
+
+---
+
 ## v4.11.4 — 07 Ago 2026
 
 ### 📱 Fix: layout responsivo partido em telemóvel
