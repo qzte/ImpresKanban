@@ -6823,8 +6823,8 @@
                 // Gráfico Circular - Distribuição por Tipo de Erro
                 htmlErros += `
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-xl); align-items: start;">
-                        <!-- COLUNA ESQUERDA: Gráfico Circular + Legenda -->
-                        <div style="display: flex; flex-direction: column; align-items: center; gap: var(--space-lg); min-height: 460px;">
+                        <!-- COLUNA ESQUERDA: Apenas Gráfico Circular -->
+                        <div style="display: flex; justify-content: center; align-items: center; min-height: 460px;">
                             <div style="position: relative; width: 380px; height: 380px;">
                                 <svg viewBox="0 0 260 260" style="transform: rotate(-90deg);">`;
 
@@ -6848,19 +6848,7 @@
                                 title="${escapeHTML(erro.descricao)}: ${erro.count} registos (${erro.percentagem}%) — clique para detalhes"/>`;
                     offset += dashArray;
                 });
-
-                // Legenda do gráfico (cor + código + percentagem, por tipo de erro)
-                let htmlLegenda = '';
-                errosComPercentagem.forEach((erro, idx) => {
-                    htmlLegenda += `
-                        <div style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;"
-                             onclick="(function(idx){ const erro=(window._qualErrosComPercentagem||[])[idx]; if(!erro) return; const regs=(window._qualRegistosFiltrados||registos).filter(r=>r.tipoErro===erro.codigo); abrirModalDetalheGrafico('Erro — '+erro.descricao,'Registos com tipo de erro: '+erro.descricao,regs,erro.cor); })(${idx})"
-                             title="${escapeHTML(erro.descricao)}: ${erro.count} registos (${erro.percentagem}%) — clique para detalhes">
-                            <span style="width: 10px; height: 10px; border-radius: 50%; background: ${erro.cor}; flex-shrink: 0;"></span>
-                            <span style="font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap;">${escapeHTML(erro.codigo)} · ${erro.percentagem}%</span>
-                        </div>`;
-                });
-
+                
                 htmlErros += `
                                 </svg>
                                 <!-- Texto no centro -->
@@ -6869,12 +6857,8 @@
                                     <div style="font-size: 1rem; color: var(--text-muted); margin-top: 0.25rem;">Registos</div>
                                 </div>
                             </div>
-                            <!-- Legenda -->
-                            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; justify-content: center; max-width: 380px;">
-                                ${htmlLegenda}
-                            </div>
                         </div>
-
+                        
                         <!-- COLUNA DIREITA: Top Tipos de Erro -->
                         <div>
                             <h5 style="margin: 0 0 var(--space-lg) 0; color: var(--text-secondary); font-size: 1rem; font-weight: 600;">Top Tipos de Erro:</h5>
