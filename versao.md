@@ -4,6 +4,20 @@
 
 ---
 
+## v4.12.0 — 14 Ago 2026
+
+### ✨ Feature: Exportar para Excel no popup de detalhe
+
+O popup de detalhe que abre ao clicar num gráfico (ex.: barras de **Tipo de Erro** no dashboard de Qualidade, como "Erro — Caixa Danificada") mostrava a lista de registos filtrados mas não permitia exportá-la — para analisar um tipo de erro específico fora da app, era preciso reconstruir o filtro manualmente no separador Registos.
+
+- **Novo:** botão **"📤 Exportar Excel"** no cabeçalho do popup de detalhe (`#modalDetalheGrafico`), junto ao botão de fechar
+- Exporta exatamente os registos atualmente mostrados no popup — sejam de um tipo de erro, de um dia, de uma hora ou de um mês, consoante o gráfico de origem
+- Inclui a coluna **"Tipo Erro Descrição"** (via `encontrarErro()`), para identificar rapidamente o tipo de erro específico sem cruzar com `T_Erros`
+- Nome do ficheiro inclui o título do popup (ex.: `Kanban_Detalhe_Erro_—_Caixa_Danificada_20260814_1530.xlsx`)
+- Reutiliza `verificarBibliotecaExcel()` e `downloadExcelTradicional()`, já usadas no export de Registos — mesmo comportamento de fallback quando `showSaveFilePicker` não está disponível
+
+---
+
 ## v4.11.5 — 13 Ago 2026
 
 ### 🐛 Fix: Descrição do Tipo de Erro em falta no Excel exportado
