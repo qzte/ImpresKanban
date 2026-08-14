@@ -6758,16 +6758,24 @@
             });
             
             const topErros = Object.entries(errosMap)
-                .sort((a, b) => b[1].count - a[1].count)
-                .slice(0, 5); // Top 5 para o gráfico
-            
+                .sort((a, b) => b[1].count - a[1].count); // Todos os tipos de erro, ordenados por frequência
+
             // Cores para os diferentes tipos de erro (escopo global)
             const cores = [
                 '#ef4444', // vermelho
                 '#f97316', // laranja
                 '#f59e0b', // âmbar
                 '#eab308', // amarelo
-                '#84cc16'  // lime
+                '#84cc16', // lime
+                '#22c55e', // verde
+                '#10b981', // esmeralda
+                '#06b6d4', // ciano
+                '#3b82f6', // azul
+                '#6366f1', // índigo
+                '#8b5cf6', // violeta
+                '#d946ef', // fúcsia
+                '#ec4899', // rosa
+                '#f43f5e'  // rosado
             ];
             
             // Calcular total de erros (escopo global)
@@ -6800,20 +6808,20 @@
                 htmlErros += `
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-xl); align-items: start;">
                         <!-- COLUNA ESQUERDA: Apenas Gráfico Circular -->
-                        <div style="display: flex; justify-content: center; align-items: center; min-height: 400px;">
-                            <div style="position: relative; width: 280px; height: 280px;">
-                                <svg viewBox="0 0 200 200" style="transform: rotate(-90deg);">`;
-                
+                        <div style="display: flex; justify-content: center; align-items: center; min-height: 460px;">
+                            <div style="position: relative; width: 380px; height: 380px;">
+                                <svg viewBox="0 0 260 260" style="transform: rotate(-90deg);">`;
+
                 // Desenhar segmentos do círculo
                 let offset = 0;
-                const circumference = 502.65; // 2 * PI * 80
-                
+                const circumference = 653.45; // 2 * PI * 104
+
                 errosComPercentagem.forEach((erro, idx) => {
                     const dashArray = (erro.percentagem / 100) * circumference;
                     htmlErros += `
-                        <circle cx="100" cy="100" r="80" fill="none" 
-                                stroke="${erro.cor}" 
-                                stroke-width="40"
+                        <circle cx="130" cy="130" r="104" fill="none"
+                                stroke="${erro.cor}"
+                                stroke-width="52"
                                 stroke-dasharray="${dashArray} ${circumference}"
                                 stroke-dashoffset="${-offset}"
                                 opacity="0.9"
@@ -6829,16 +6837,16 @@
                                 </svg>
                                 <!-- Texto no centro -->
                                 <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
-                                    <div style="font-size: 2.5rem; font-weight: 700; color: var(--text-primary);">${totalErros}</div>
-                                    <div style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.25rem;">Registos</div>
+                                    <div style="font-size: 3.25rem; font-weight: 700; color: var(--text-primary);">${totalErros}</div>
+                                    <div style="font-size: 1rem; color: var(--text-muted); margin-top: 0.25rem;">Registos</div>
                                 </div>
                             </div>
                         </div>
                         
-                        <!-- COLUNA DIREITA: Top 5 Tipos de Erro -->
+                        <!-- COLUNA DIREITA: Top Tipos de Erro -->
                         <div>
-                            <h5 style="margin: 0 0 var(--space-lg) 0; color: var(--text-secondary); font-size: 1rem; font-weight: 600;">Top 5 Tipos de Erro:</h5>
-                            <div style="display: flex; flex-direction: column; gap: 0.75rem;">`;
+                            <h5 style="margin: 0 0 var(--space-lg) 0; color: var(--text-secondary); font-size: 1rem; font-weight: 600;">Top Tipos de Erro:</h5>
+                            <div style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 460px; overflow-y: auto; padding-right: 0.25rem;">`;
                 
                 errosComPercentagem.forEach((erro, idx) => {
                     htmlErros += `
