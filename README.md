@@ -2,7 +2,7 @@
 
 > Ferramenta web **100% offline** para controlo e análise de Kanban e gestão de KPI para equipas de manutenção de supermercados.
 
-**Versão atual:** 4.12.0 — servida como `index.html` (cópia versionada: `kanban-kpi-analyzer-v4_12_0.html`)
+**Versão atual:** 4.13.0 — servida como `index.html` (cópia versionada: `kanban-kpi-analyzer-v4_13_0.html`)
 
 ---
 
@@ -152,17 +152,17 @@ Ficheiro Excel (`.xlsx`) com as seguintes folhas obrigatórias:
 git status
 
 # 2. Adicionar alterações
-git add index.html kanban-kpi-analyzer-v4_12_0.html versao.md README.md
+git add index.html kanban-kpi-analyzer-v4_13_0.html versao.md README.md sw.js
 
 # 3. Commit com mensagem descritiva
-git commit -m "feat(export): exportar para Excel no popup de detalhe | kanban-kpi-analyzer-v4_12_0.html"
+git commit -m "feat(form): ID Tag obrigatório quando o erro é 'ID Tag ilegível ou em falta' | kanban-kpi-analyzer-v4_13_0.html"
 
 # 4. Enviar para GitHub
 git push
 
 # 5. Criar tag de versão
-git tag -a v4.12.0 -m "Descrição curta da alteração"
-git push origin v4.12.0
+git tag -a v4.13.0 -m "Descrição curta da alteração"
+git push origin v4.13.0
 ```
 
 ### Localização obrigatória das 5 actualizações de versão no HTML
@@ -193,7 +193,8 @@ Consulte o ficheiro [`versao.md`](./versao.md) para o histórico completo.
 
 | Versão | Data | Destaque |
 |---|---|---|
-| **4.12.0** | 14 Ago 2026 | ✨ Exportar para Excel no popup de detalhe (gráficos, ex.: por tipo de erro) |
+| **4.13.0** | 17 Ago 2026 | ✨ ID Tag obrigatório quando o erro é "ID Tag ilegível ou em falta" |
+| 4.12.0 | 14 Ago 2026 | ✨ Exportar para Excel no popup de detalhe (gráficos, ex.: por tipo de erro) |
 | 4.11.5 | 13 Ago 2026 | 🐛 Fix: Descrição do Tipo de Erro em falta no Excel exportado |
 | 4.11.4 | 07 Ago 2026 | 📱 Fix: layout responsivo partido em telemóvel (separadores sem quebra de linha) |
 | 4.11.3 | 03 Ago 2026 | 🎨 Ícone Kkpi nas 4 variantes + favicon |
