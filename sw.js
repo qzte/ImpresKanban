@@ -1,6 +1,6 @@
 /* =====================================================
    SERVICE WORKER — Kanban KPI Analyzer
-   Versão: 4.12.0
+   Versão: 4.13.0
    ------------------------------------------------
    Estratégia:
    - App shell (HTML, manifest, ícones): cache-first,
@@ -17,7 +17,7 @@
      crescimento ilimitado do cache com recursos externos
    ===================================================== */
 
-const APP_VERSION = '4.12.0';
+const APP_VERSION = '4.13.0';
 const CACHE_NAME = `kanban-kpi-v${APP_VERSION}`;
 
 // Documento estável servido à PWA. NÃO usar o nome versionado:

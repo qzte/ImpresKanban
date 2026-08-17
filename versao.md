@@ -4,6 +4,19 @@
 
 ---
 
+## v4.13.0 — 17 Ago 2026
+
+### ✨ Feature: ID Tag obrigatório quando o erro é "ID Tag ilegível ou em falta"
+
+Ao selecionar o Tipo de Erro **"ID Tag ilegível ou em falta"**, era possível gravar o registo sem indicar o número da tag RFID — a informação que justamente identificaria a tag em causa ficava em falta no próprio registo que reporta esse problema.
+
+- **Novo:** o campo **"ID Tag"** passa a ser obrigatório sempre que o Tipo de Erro selecionado corresponde a "ID Tag ilegível ou em falta", nos 3 formulários de registo — Identificação, Batch por Artigos (uma tag por linha) e Batch por Serviços
+- O campo mostra o asterisco de obrigatório e uma nota explicativa apenas quando aplicável; nos restantes tipos de erro o "ID Tag" mantém-se opcional
+- Segue o mesmo padrão já usado para o campo "Ultimo Estado do RFID" (obrigatório quando o erro é "KB Perdido"): comparação do texto do Tipo de Erro normalizado (sem acentos, minúsculas) contra a descrição de `T_Erros`
+- Validação aplicada tanto no envio do formulário como ao editar um registo existente
+
+---
+
 ## v4.12.0 — 14 Ago 2026
 
 ### ✨ Feature: Exportar para Excel no popup de detalhe
