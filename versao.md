@@ -4,6 +4,17 @@
 
 ---
 
+## v4.14.0 — 18 Ago 2026
+
+### ✨ Feature: Campo Observação no registo em Batch (Múltiplos Artigos)
+
+No separador **Batch → Múltiplos Artigos**, cada linha da secção "Artigos a Adicionar" gravava sempre o registo com o campo Observações preenchido automaticamente com o texto fixo `Batch registo N` — não havia forma de anotar algo específico sobre um artigo da lista, ao contrário do formulário individual (Identificação), que já tem um campo de Observações livre.
+
+- **Novo:** campo de texto **"Observação"** (opcional) em cada linha de artigo, a seguir a "Qtd Kanbans"
+- O texto introduzido em cada linha passa a ser gravado no campo `obs` do respetivo registo, substituindo o rótulo automático anterior; se a linha ficar em branco, o registo fica sem observação (tal como um registo individual sem notas)
+
+---
+
 ## v4.13.0 — 17 Ago 2026
 
 ### ✨ Feature: ID Tag obrigatório quando o erro é "ID Tag ilegível ou em falta"
