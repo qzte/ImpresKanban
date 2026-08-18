@@ -2,7 +2,7 @@
 
 > Ferramenta web **100% offline** para controlo e análise de Kanban e gestão de KPI para equipas de manutenção de supermercados.
 
-**Versão atual:** 4.13.0 — servida como `index.html` (cópia versionada: `kanban-kpi-analyzer-v4_13_0.html`)
+**Versão atual:** 4.14.0 — servida como `index.html` (cópia versionada: `kanban-kpi-analyzer-v4_14_0.html`)
 
 ---
 
@@ -193,7 +193,8 @@ Consulte o ficheiro [`versao.md`](./versao.md) para o histórico completo.
 
 | Versão | Data | Destaque |
 |---|---|---|
-| **4.13.0** | 17 Ago 2026 | ✨ ID Tag obrigatório quando o erro é "ID Tag ilegível ou em falta" |
+| **4.14.0** | 18 Ago 2026 | ✨ Campo Observação no registo em Batch (Múltiplos Artigos) |
+| 4.13.0 | 17 Ago 2026 | ✨ ID Tag obrigatório quando o erro é "ID Tag ilegível ou em falta" |
 | 4.12.0 | 14 Ago 2026 | ✨ Exportar para Excel no popup de detalhe (gráficos, ex.: por tipo de erro) |
 | 4.11.5 | 13 Ago 2026 | 🐛 Fix: Descrição do Tipo de Erro em falta no Excel exportado |
 | 4.11.4 | 07 Ago 2026 | 📱 Fix: layout responsivo partido em telemóvel (separadores sem quebra de linha) |
