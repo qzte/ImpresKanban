@@ -4154,6 +4154,29 @@
         // ==========================================
         // IMPORTAR BACKUP (JSON ou Excel)
         // ==========================================
+
+        /**
+         * Junta uma tabela de referência nova à atual, sem duplicar entradas
+         * já existentes (identificadas pelo campo `chave`). Em caso de
+         * conflito mantém a entrada atual.
+         */
+        function mergeReferencia(atual, novo, chave) {
+            atual = Array.isArray(atual) ? atual : [];
+            novo = Array.isArray(novo) ? novo : [];
+            const chavesExistentes = new Set(
+                atual.map(item => item && item[chave]).filter(v => v !== undefined && v !== null)
+            );
+            const resultado = [...atual];
+            novo.forEach(item => {
+                const valor = item && item[chave];
+                if (valor === undefined || valor === null || !chavesExistentes.has(valor)) {
+                    resultado.push(item);
+                    if (valor !== undefined && valor !== null) chavesExistentes.add(valor);
+                }
+            });
+            return resultado;
+        }
+
         function importarBackup(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -4179,20 +4202,48 @@
                             : 'desconhecida';
 
                         if (!confirm(
-                            `Restaurar backup JSON?\n\n` +
+                            `Importar backup JSON?\n\n` +
                             `Data do backup: ${dataBackup}\n` +
                             `Registos no backup: ${totalBackup}\n` +
-                            `Registos atuais: ${registos.length}\n\n` +
-                            `ATENÇÃO: Os dados atuais serão substituídos!`
+                            `Registos atuais: ${registos.length}`
                         )) return;
 
-                        // Restaurar dados
-                        registos = backup.registos || [];
-                        if (backup.tArtigo)       { tArtigo       = backup.tArtigo;       }
-                        if (backup.tServicos)     { tServicos     = backup.tServicos;     }
-                        if (backup.tUtilizadores) { tUtilizadores = backup.tUtilizadores; }
-                        if (backup.tErros)        { tErros        = backup.tErros;        }
-                        if (backup.tOrigem)       { tOrigem       = backup.tOrigem;       }
+                        const concatenar = confirm(
+                            `Concatenar com os dados atuais?\n\n` +
+                            `OK = Concatenar (junta os registos do backup aos atuais, sem duplicar por UUID)\n` +
+                            `Cancelar = Substituir (os dados atuais serão APAGADOS e substituídos pelos do backup)`
+                        );
+
+                        let registosAdicionados = 0;
+
+                        if (concatenar) {
+                            // Concatenar: juntar registos, evitando duplicados por UUID
+                            const uuidsAtuais = new Set(registos.map(r => r.uuid).filter(Boolean));
+                            (backup.registos || []).forEach(r => {
+                                if (!r.uuid) r.uuid = gerarUUID();
+                                if (!uuidsAtuais.has(r.uuid)) {
+                                    registos.push(r);
+                                    uuidsAtuais.add(r.uuid);
+                                    registosAdicionados++;
+                                }
+                            });
+
+                            tArtigo       = mergeReferencia(tArtigo,       backup.tArtigo,       'CODIGO');
+                            tServicos     = mergeReferencia(tServicos,     backup.tServicos,     'ID_SERVICO');
+                            tUtilizadores = mergeReferencia(tUtilizadores, backup.tUtilizadores, 'UUID_UTILIZADOR');
+                            tErros        = mergeReferencia(tErros,        backup.tErros,        'CODIGO_ERRO');
+                            tOrigem       = mergeReferencia(tOrigem,       backup.tOrigem,       'ID_ORIGEM');
+                        } else {
+                            // Substituir dados
+                            registos = backup.registos || [];
+                            registosAdicionados = registos.length;
+                            if (backup.tArtigo)       { tArtigo       = backup.tArtigo;       }
+                            if (backup.tServicos)     { tServicos     = backup.tServicos;     }
+                            if (backup.tUtilizadores) { tUtilizadores = backup.tUtilizadores; }
+                            if (backup.tErros)        { tErros        = backup.tErros;        }
+                            if (backup.tOrigem)       { tOrigem       = backup.tOrigem;       }
+                        }
+
                         if (backup.citacaoIndex)  {
                             localStorage.setItem(STORAGE_CITACAO_INDEX, backup.citacaoIndex);
                         }
@@ -4214,9 +4265,14 @@
                         popularOrigens();
 
                         mostrarAlerta(
-                            `✅ Backup restaurado com sucesso!<br>` +
-                            `<strong>Registos recuperados:</strong> ${registos.length}<br>` +
-                            `<strong>Kanbans:</strong> ${registos.reduce((s,r) => s + (r.qtdKanbans||1), 0)}`,
+                            concatenar
+                                ? `✅ Backup concatenado com sucesso!<br>` +
+                                  `<strong>Registos novos adicionados:</strong> ${registosAdicionados}<br>` +
+                                  `<strong>Total de registos:</strong> ${registos.length}<br>` +
+                                  `<strong>Kanbans:</strong> ${registos.reduce((s,r) => s + (r.qtdKanbans||1), 0)}`
+                                : `✅ Backup restaurado com sucesso!<br>` +
+                                  `<strong>Registos recuperados:</strong> ${registos.length}<br>` +
+                                  `<strong>Kanbans:</strong> ${registos.reduce((s,r) => s + (r.qtdKanbans||1), 0)}`,
                             'success'
                         );
 
