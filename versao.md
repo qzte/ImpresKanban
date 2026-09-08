@@ -4,6 +4,17 @@
 
 ---
 
+## v4.15.0 — 08 Set 2026
+
+### ✨ Feature: Concatenar backups de dois operadores
+
+A importação de backup JSON (`importarBackup()`) substituía sempre por completo os dados atuais — não havia forma de juntar o backup de um operador ao de outro sem perder um dos dois conjuntos de registos.
+
+- **Novo:** ao importar um backup JSON, é agora perguntado se pretende **Concatenar** (juntar aos dados atuais) ou **Substituir** (comportamento anterior)
+- No modo Concatenar, os `registos` do backup são juntados aos atuais sem duplicar por `uuid`, e as tabelas de referência (`tArtigo`, `tServicos`, `tUtilizadores`, `tErros`, `tOrigem`) são unidas por chave (`CODIGO`, `ID_SERVICO`, `UUID_UTILIZADOR`, `CODIGO_ERRO`, `ID_ORIGEM`), mantendo a entrada atual em caso de conflito
+
+---
+
 ## v4.14.0 — 18 Ago 2026
 
 ### ✨ Feature: Campo Observação no registo em Batch (Múltiplos Artigos)
