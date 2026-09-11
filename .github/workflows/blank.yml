@@ -25,8 +25,29 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       # Falha se a versão da app divergir entre version.js (fonte única) e
       # os sítios que não podem ser derivados automaticamente (cabeçalho
       # CSS e changelog em index.html) — ver v4.15.1
       - name: Check version sync
         run: node scripts/check-version-sync.js
+
+      # Sem isto, um erro de sintaxe no <script> inline de index.html só
+      # era descoberto ao abrir a app no browser — ver v4.15.3
+      - name: Check inline <script> syntax (index.html)
+        run: node scripts/check-js-syntax.js
+
+      - name: Check syntax (sw.js, version.js, scripts/)
+        run: |
+          node --check sw.js
+          node --check version.js
+          find scripts -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      # Testes unitários das funções puras extraídas de index.html — ver
+      # test/pure-functions.test.js (isValorAtivo, calcularIntervaloDataRapido,
+      # obterChaveSemana, validarDuplicados, normalizarTextoRFID)
+      - name: Run unit tests
+        run: node --test
