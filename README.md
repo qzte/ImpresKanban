@@ -2,7 +2,7 @@
 
 > Ferramenta web **100% offline** para controlo e análise de Kanban e gestão de KPI para equipas de manutenção de supermercados.
 
-**Versão atual:** 4.15.0 — servida como `index.html` (cópia versionada: `kanban-kpi-analyzer-v4_15_0.html`)
+**Versão atual:** 4.16.0 — servida como `index.html` (cópia versionada: `kanban-kpi-analyzer-v4_15_0.html`)
 
 ---
 
