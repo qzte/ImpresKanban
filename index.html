@@ -5292,7 +5292,11 @@
             if (str === null || str === undefined) return '';
             const div = document.createElement('div');
             div.textContent = String(str);
-            return div.innerHTML;
+            // textContent -> innerHTML escapa & < > mas NÃO ' nem " — insuficiente
+            // para valores interpolados dentro de atributos delimitados por aspas
+            // (ex.: onclick="fn('${escapeHTML(x)}')"), onde um apóstrofo no valor
+            // fecha o argumento e injeta JavaScript no atributo (v4.11.4)
+            return div.innerHTML.replace(/'/g, '&#39;').replace(/"/g, '&#34;');
         }
         
         /**
@@ -7808,14 +7812,28 @@
                         <td style="text-align: center; font-weight: 600;">${registo.qtdKanbans || 1}</td>
                         <td title="${escapeHTML(tipoErroDisplay)}">${escapeHTML(tipoErroDisplay)}</td>
                         <td>
-                            <button onclick="editarRegisto('${escapeHTML(String(registo.uuid || ''))}')" class="btn btn-sm" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; margin-right: 0.25rem;">
+                            <button class="btn btn-sm btn-acao-editar" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; margin-right: 0.25rem;">
                                 ✏️ Editar
                             </button>
-                            <button onclick="eliminarRegisto('${escapeHTML(String(registo.uuid || ''))}')" class="btn btn-sm" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; background: var(--accent-error);">
+                            <button class="btn btn-sm btn-acao-eliminar" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; background: var(--accent-error);">
                                 🗑️
                             </button>
                         </td>
                     `;
+
+                    // UUID passado via dataset (API do DOM, não parsing de HTML/JS)
+                    // em vez de interpolado num onclick="...('...')" — um onclick
+                    // string nunca é seguro para valores vindos de fora (ex.: UUID
+                    // de um backup JSON manipulado) porque não há escape de atributo
+                    // que sobreviva a estar simultaneamente dentro de HTML e de JS
+                    const uuidRegisto = String(registo.uuid || '');
+                    const btnEditar = row.querySelector('.btn-acao-editar');
+                    btnEditar.dataset.uuid = uuidRegisto;
+                    btnEditar.addEventListener('click', () => editarRegisto(btnEditar.dataset.uuid));
+
+                    const btnEliminar = row.querySelector('.btn-acao-eliminar');
+                    btnEliminar.dataset.uuid = uuidRegisto;
+                    btnEliminar.addEventListener('click', () => eliminarRegisto(btnEliminar.dataset.uuid));
                 });
             
             // Mostrar info de filtros ativos
