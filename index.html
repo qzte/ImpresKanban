@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Análise KPI - Manutenção Kanban v4.15.0</title>
+    <title>Análise KPI - Manutenção Kanban</title>
     <link rel="manifest" href="manifest.json">
+    <!-- Fonte única da versão da app (ver version.js) — carregado antes do
+         script inline que a usa para definir document.title e APP_VERSION -->
+    <script src="version.js"></script>
     <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
     <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
     <link rel="apple-touch-icon" href="icon-192.png">
@@ -15,8 +18,25 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js" integrity="sha384-vuyrTV5nkscLp1knFvt+FIHfKKzmROBq5reruhMRslauj54mW+l2B8b6szMN6lCL" crossorigin="anonymous"></script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.15.0 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.15.1 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
+
+           VERSÃO 4.15.1 - Fix: versão mantida à mão em 6 sítios (11 Set 2026)
+           ------------------------------------------------
+           🔧 A versão era duplicada manualmente em 6 sítios (título, este
+              comentário, APP_VERSION, #appVersionDisplay, changelog, e
+              sw.js — que costumava ficar esquecido) — um processo de 6
+              passos falha, só era questão de tempo
+           🔧 APP_VERSION passa a viver só em version.js; index.html
+              carrega-o via <script src>, sw.js via importScripts() — sw.js
+              tinha mesmo ficado preso em 4.14.0 enquanto index.html já ia
+              em 4.15.0
+           🔧 <title> e #appVersionDisplay deixam de ter a versão
+              hardcoded no HTML estático (já eram sempre substituídos por
+              JS) — só o cabeçalho deste comentário CSS e a entrada mais
+              recente do changelog continuam manuais (são prosa, não dá
+              para derivar), por isso o CI passa a falhar se estes
+              divergirem de version.js (scripts/check-version-sync.js)
 
            VERSÃO 4.15.0 - Feature: Concatenar backups (08 Set 2026)
            ------------------------------------------------
@@ -1345,10 +1365,11 @@
     <!-- SCRIPT CRÍTICO: Funções de Navegação (carregadas PRIMEIRO) -->
     <script>
         // ==========================================
-        // VERSÃO DA APLICAÇÃO (ATUALIZAR APENAS AQUI!)
+        // VERSÃO DA APLICAÇÃO
         // ==========================================
-        const APP_VERSION = '4.15.0';
-        
+        // Definida em version.js (fonte única, carregado por <script src=
+        // "version.js"> acima) — ATUALIZAR APENAS LÁ.
+
         // Atualizar título da página
         document.title = `Análise KPI - Manutenção Kanban v${APP_VERSION}`;
         
@@ -1501,7 +1522,9 @@
         <div class="container" style="padding-top: 0; padding-bottom: 0;">
             <h1>📦 Análise KPI - Manutenção Kanban</h1>
             <p class="subtitle">Sistema de Dupla Caixa para Gestão de Stock</p>
-            <span id="appVersionDisplay" class="version">v4.15.0 📊</span>
+            <!-- Preenchido a partir de APP_VERSION em DOMContentLoaded — não
+                 hardcodar a versão aqui, ou diverge dela (ver v4.15.1) -->
+            <span id="appVersionDisplay" class="version"></span>
         </div>
     </header>
     <div class="container">
