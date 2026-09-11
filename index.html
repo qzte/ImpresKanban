@@ -5649,14 +5649,34 @@
             }
         }
 
+        // Descarta entradas que não são sequer um registo plausível (fragmento
+        // de escrita interrompida por quota, JSON parcialmente corrompido, etc.)
+        function filtrarRegistosUtilizaveis(lista) {
+            return lista.filter(r => r && typeof r === 'object' && (r.uuid || r.data));
+        }
+
         function carregarDados() {
             try {
                 const dados = localStorage.getItem(STORAGE_KEY);
                 if (dados) {
-                    registos = JSON.parse(dados);
-                    
+                    const registosCarregados = JSON.parse(dados);
+
+                    // O JSON pode ser válido mas não ter a forma esperada (ex.:
+                    // gravação interrompida a meio por quota deixou um objeto ou
+                    // string em vez do array) — sem esta validação a app arrancava
+                    // com um estado inválido e falhava logo no primeiro dashboard
+                    if (!Array.isArray(registosCarregados)) {
+                        throw new Error('Formato de dados inválido: esperava-se uma lista de registos.');
+                    }
+
+                    registos = filtrarRegistosUtilizaveis(registosCarregados);
+                    const descartados = registosCarregados.length - registos.length;
+                    if (descartados > 0) {
+                        console.warn(`⚠️ ${descartados} registo(s) corrompido(s)/sem uuid nem data foram descartados ao carregar.`);
+                    }
+
                     // Migração: adicionar UUID em registos antigos
-                    let modificado = false;
+                    let modificado = descartados > 0;
                     registos = registos.map(r => {
                         if (!r.uuid) {
                             r.uuid = gerarUUID();
@@ -5668,18 +5688,77 @@
                         }
                         return r;
                     });
-                    
+
                     // Salvar se houve migração
                     if (modificado) {
                         salvarDados();
                         console.log('✅ Migração completa: UUIDs adicionados aos registos antigos');
                     }
-                    
+
                     atualizarInterface();
                 }
             } catch (e) {
-                mostrarAlerta('Erro ao carregar dados: ' + e.message, 'warning');
+                console.error('❌ Erro ao carregar dados do localStorage:', e);
+                if (!tentarRestaurarDeBackupAutomatico(e)) {
+                    // Sem backup para oferecer (ou utilizador recusou): não deixar
+                    // a app arrancar com `registos` num estado inválido/por definir
+                    registos = [];
+                    mostrarAlerta('❌ Erro ao carregar dados: ' + e.message, 'warning');
+                    atualizarInterface();
+                }
             }
+        }
+
+        // Chamada quando os dados principais não puderam ser carregados. Tenta
+        // oferecer ao utilizador o backup automático em 'kanban_backup' (gravado
+        // ao fechar a janela, periodicamente, e ao mudar de separador) em vez de
+        // deixar a aplicação arrancar sem nenhum caminho de recuperação.
+        // Devolve true se o backup foi restaurado com sucesso.
+        function tentarRestaurarDeBackupAutomatico(erroOriginal) {
+            const backupBruto = localStorage.getItem('kanban_backup');
+            if (!backupBruto) return false;
+
+            let backup;
+            try {
+                backup = JSON.parse(backupBruto);
+            } catch (e) {
+                console.error('❌ Backup automático também está corrompido:', e);
+                return false;
+            }
+
+            if (!backup || !Array.isArray(backup.registos)) return false;
+
+            const dataBackup = backup.dataBackup
+                ? new Date(backup.dataBackup).toLocaleString('pt-PT')
+                : 'desconhecida';
+
+            if (!confirm(
+                `❌ Os dados guardados estão corrompidos e não puderam ser carregados.\n\nErro: ${erroOriginal.message}\n\n` +
+                `Foi encontrado um backup automático de ${dataBackup} com ${backup.registos.length} registo(s).\n\n` +
+                `Deseja restaurar esse backup agora?`
+            )) {
+                return false;
+            }
+
+            registos = filtrarRegistosUtilizaveis(backup.registos).map(r => {
+                if (!r.uuid) r.uuid = gerarUUID();
+                if (!r.dataModificacao) r.dataModificacao = r.timestamp || new Date().toISOString();
+                return r;
+            });
+            if (backup.tArtigo)       { tArtigo       = backup.tArtigo;       }
+            if (backup.tServicos)     { tServicos     = backup.tServicos;     }
+            if (backup.tUtilizadores) { tUtilizadores = backup.tUtilizadores; }
+            if (backup.tErros)        { tErros        = backup.tErros;        }
+            if (backup.tOrigem)       { tOrigem       = backup.tOrigem;       }
+
+            if (salvarDados()) {
+                salvarReferencias();
+                mostrarAlerta(`✅ Backup automático restaurado com sucesso!<br>${registos.length} registo(s) recuperado(s) de ${dataBackup}.`, 'success');
+            } else {
+                mostrarAlerta('⚠️ Backup restaurado apenas em memória — a gravação falhou (ver aviso anterior). Exporte um backup manual assim que possível.', 'warning');
+            }
+            atualizarInterface();
+            return true;
         }
 
         // ==========================================
