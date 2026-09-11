@@ -4212,9 +4212,11 @@
                     try {
                         const backup = JSON.parse(e.target.result);
 
-                        // Validação mínima
-                        if (!backup.registos && !Array.isArray(backup.registos)) {
-                            mostrarAlerta('❌ Ficheiro JSON inválido: campo "registos" em falta.', 'warning');
+                        // Validação mínima — tem de ser um array; um objeto/string
+                        // truthy não pode passar, ou corrompe o estado global antes
+                        // do .map() de migração lançar (catch não desfaz a atribuição)
+                        if (!Array.isArray(backup.registos)) {
+                            mostrarAlerta('❌ Ficheiro JSON inválido: campo "registos" em falta ou não é uma lista.', 'warning');
                             return;
                         }
 
