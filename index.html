@@ -7461,6 +7461,13 @@
         }
 
         function formatarData(data) {
+            // Regs importados de Excel sem coluna Data ficam com data '' ou
+            // undefined — sem esta guarda, o .split() lançava e interrompia
+            // o forEach de renderização da tabela a meio (registos seguintes
+            // nunca chegavam a ser desenhados)
+            if (typeof data !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+                return '—';
+            }
             const partes = data.split('-');
             return `${partes[2]}/${partes[1]}/${partes[0]}`;
         }
@@ -7712,7 +7719,7 @@
                     
                     const row = tbody.insertRow();
                     row.innerHTML = `
-                        <td>${formatarData(registo.data)}</td>
+                        <td>${escapeHTML(formatarData(registo.data))}</td>
                         <td>${escapeHTML(registo.utilizadorNome || registo.utilizadorUUID?.substring(0,8) || 'N/A')}</td>
                         <td>${escapeHTML(registo.servico)}<br><small style="color: var(--text-muted);">${escapeHTML(registo.servicoId)}</small></td>
                         <td>${escapeHTML(registo.artigoDescricao)}<br><small style="color: var(--text-muted);">${escapeHTML(registo.artigo)}</small></td>
@@ -8758,7 +8765,7 @@
 
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
-                            <td style="white-space:nowrap;">${formatarData(r.data)}</td>
+                            <td style="white-space:nowrap;">${escapeHTML(formatarData(r.data))}</td>
                             <td>
                                 <div style="font-weight:500; font-size:0.8125rem;">${escapeHTML(r.servico || '—')}</div>
                                 <div style="font-size:0.75rem; color:var(--text-muted);">${escapeHTML(r.servicoId || '')}</div>
