@@ -3332,16 +3332,20 @@
             console.log('📊 Resultado final:', { registosAdicionados, erros, totalRegistos: registos.length });
             
             if (registosAdicionados > 0) {
-                salvarDados();
-                atualizarInterface();
-                
-                let mensagem = `✅ Batch processado com sucesso! ${registosAdicionados} artigo(s) adicionado(s).`;
-                if (erros > 0) {
-                    mensagem += `\n\n⚠️ ${erros} artigo(s) ignorado(s):\n${errosDetalhados.join('\n')}`;
+                if (salvarDados()) {
+                    let mensagem = `✅ Batch processado com sucesso! ${registosAdicionados} artigo(s) adicionado(s).`;
+                    if (erros > 0) {
+                        mensagem += `\n\n⚠️ ${erros} artigo(s) ignorado(s):\n${errosDetalhados.join('\n')}`;
+                    }
+
+                    mostrarAlerta(mensagem, 'success');
+                    limparBatch();
+                } else {
+                    // Gravação falhou: reverter os registos deste batch em memória
+                    // para não ficarem "adicionados" sem terem sido persistidos
+                    registos.splice(registos.length - registosAdicionados, registosAdicionados);
                 }
-                
-                mostrarAlerta(mensagem, 'success');
-                limparBatch();
+                atualizarInterface();
             } else {
                 let mensagem = `❌ Nenhum artigo foi adicionado.`;
                 if (errosDetalhados.length > 0) {
@@ -3673,15 +3677,19 @@
             });
             
             if (registosAdicionados > 0) {
-                salvarDados();
-                atualizarInterface();
-                
-                let mensagem = `✅ Batch processado com sucesso! ${registosAdicionados} serviço(s) registado(s) para o artigo ${artigo}.`;
-                if (erros > 0) {
-                    mensagem += `\n\n⚠️ ${erros} linha(s) ignorada(s):\n${errosDetalhados.join('\n')}`;
+                if (salvarDados()) {
+                    let mensagem = `✅ Batch processado com sucesso! ${registosAdicionados} serviço(s) registado(s) para o artigo ${artigo}.`;
+                    if (erros > 0) {
+                        mensagem += `\n\n⚠️ ${erros} linha(s) ignorada(s):\n${errosDetalhados.join('\n')}`;
+                    }
+                    mostrarAlerta(mensagem, 'success');
+                    limparBatchServicos();
+                } else {
+                    // Gravação falhou: reverter os registos deste batch em memória
+                    // para não ficarem "adicionados" sem terem sido persistidos
+                    registos.splice(registos.length - registosAdicionados, registosAdicionados);
                 }
-                mostrarAlerta(mensagem, 'success');
-                limparBatchServicos();
+                atualizarInterface();
             } else {
                 mostrarAlerta(`❌ Nenhum registo foi adicionado.\n\nErros:\n${errosDetalhados.join('\n')}`, 'error');
             }
@@ -4081,13 +4089,17 @@
                         else { registos.push(novoRegisto); adicionados++; }
                     });
 
-                    salvarDados();
+                    if (salvarDados()) {
+                        let mensagem = `✅ Importação concluída!<br>${adicionados} registos adicionados`;
+                        if (duplicados > 0) mensagem += `<br>⚠️ ${duplicados} duplicados ignorados`;
+                        mensagem += `<br>Total atual: ${registos.length} registos`;
+                        mostrarAlerta(mensagem, 'success');
+                    } else {
+                        // Gravação falhou: reverter os registos importados em memória
+                        // para não ficarem "adicionados" sem terem sido persistidos
+                        registos.splice(registos.length - adicionados, adicionados);
+                    }
                     atualizarInterface();
-
-                    let mensagem = `✅ Importação concluída!<br>${adicionados} registos adicionados`;
-                    if (duplicados > 0) mensagem += `<br>⚠️ ${duplicados} duplicados ignorados`;
-                    mensagem += `<br>Total atual: ${registos.length} registos`;
-                    mostrarAlerta(mensagem, 'success');
 
                 } catch (error) {
                     console.error('Erro ao importar:', error);
@@ -4226,6 +4238,14 @@
 
                         let registosAdicionados = 0;
 
+                        // Guardar estado anterior para reverter se a gravação falhar
+                        // (ex.: quota esgotada) e não perder os dados atuais em memória.
+                        // registos é copiado porque o modo "concatenar" faz push() no
+                        // próprio array, o que corromperia uma referência direta.
+                        const estadoAnterior = {
+                            registos: registos.slice(), tArtigo, tServicos, tUtilizadores, tErros, tOrigem
+                        };
+
                         if (concatenar) {
                             // Concatenar: juntar registos, evitando duplicados por UUID
                             const uuidsAtuais = new Set(registos.map(r => r.uuid).filter(Boolean));
@@ -4265,26 +4285,37 @@
                             return r;
                         });
 
-                        salvarDados();
-                        salvarReferencias();
-                        atualizarInterface();
-                        atualizarInterfaceReferencias();
-                        popularDataLists();
-                        popularUtilizadores();
-                        popularErros();
-                        popularOrigens();
+                        if (salvarDados()) {
+                            salvarReferencias();
+                            atualizarInterface();
+                            atualizarInterfaceReferencias();
+                            popularDataLists();
+                            popularUtilizadores();
+                            popularErros();
+                            popularOrigens();
 
-                        mostrarAlerta(
-                            concatenar
-                                ? `✅ Backup concatenado com sucesso!<br>` +
-                                  `<strong>Registos novos adicionados:</strong> ${registosAdicionados}<br>` +
-                                  `<strong>Total de registos:</strong> ${registos.length}<br>` +
-                                  `<strong>Kanbans:</strong> ${registos.reduce((s,r) => s + (r.qtdKanbans||1), 0)}`
-                                : `✅ Backup restaurado com sucesso!<br>` +
-                                  `<strong>Registos recuperados:</strong> ${registos.length}<br>` +
-                                  `<strong>Kanbans:</strong> ${registos.reduce((s,r) => s + (r.qtdKanbans||1), 0)}`,
-                            'success'
-                        );
+                            mostrarAlerta(
+                                concatenar
+                                    ? `✅ Backup concatenado com sucesso!<br>` +
+                                      `<strong>Registos novos adicionados:</strong> ${registosAdicionados}<br>` +
+                                      `<strong>Total de registos:</strong> ${registos.length}<br>` +
+                                      `<strong>Kanbans:</strong> ${registos.reduce((s,r) => s + (r.qtdKanbans||1), 0)}`
+                                    : `✅ Backup restaurado com sucesso!<br>` +
+                                      `<strong>Registos recuperados:</strong> ${registos.length}<br>` +
+                                      `<strong>Kanbans:</strong> ${registos.reduce((s,r) => s + (r.qtdKanbans||1), 0)}`,
+                                'success'
+                            );
+                        } else {
+                            // Gravação falhou: reverter tudo para o estado anterior
+                            // em vez de deixar a app com dados só em memória
+                            registos = estadoAnterior.registos;
+                            tArtigo = estadoAnterior.tArtigo;
+                            tServicos = estadoAnterior.tServicos;
+                            tUtilizadores = estadoAnterior.tUtilizadores;
+                            tErros = estadoAnterior.tErros;
+                            tOrigem = estadoAnterior.tOrigem;
+                            atualizarInterface();
+                        }
 
                     } catch (err) {
                         mostrarAlerta('❌ Erro ao ler ficheiro JSON: ' + err.message, 'warning');
@@ -5503,20 +5534,26 @@
                 const index = registos.findIndex(r => r.uuid === registoEmEdicao);
                 if (index !== -1) {
                     // Manter UUID, id e timestamp original
+                    const registoOriginal = registos[index];
                     registos[index] = {
-                        ...registos[index],
+                        ...registoOriginal,
                         ...dadosRegisto,
                         dataModificacao: new Date().toISOString()
                     };
-                    salvarDados();
-                    mostrarAlerta('✅ Registo atualizado com sucesso!', 'success');
+                    if (salvarDados()) {
+                        mostrarAlerta('✅ Registo atualizado com sucesso!', 'success');
+                        // Sair do modo edição em silêncio — o alerta "Edição cancelada"
+                        // substituía a confirmação de gravação acabada de mostrar (v4.11.2)
+                        cancelarEdicao(true);
+                    } else {
+                        // Gravação falhou: reverter em memória e manter o formulário
+                        // em edição para o operador não perder nem reescrever os dados
+                        registos[index] = registoOriginal;
+                    }
                 } else {
                     mostrarAlerta('❌ Erro: Registo não encontrado', 'warning');
                 }
 
-                // Sair do modo edição em silêncio — o alerta "Edição cancelada"
-                // substituía a confirmação de gravação acabada de mostrar (v4.11.2)
-                cancelarEdicao(true);
                 atualizarInterface();
                 return;
             }
@@ -5546,9 +5583,14 @@
             }
 
             registos.push(registo);
-            salvarDados();
-            mostrarAlerta('Registo adicionado com sucesso!', 'success');
-            limparFormulario();
+            if (salvarDados()) {
+                mostrarAlerta('Registo adicionado com sucesso!', 'success');
+                limparFormulario();
+            } else {
+                // Gravação falhou: reverter em memória e manter o formulário
+                // preenchido para o operador não ter de reescrever tudo
+                registos.pop();
+            }
             atualizarInterface();
         });
 
@@ -5576,10 +5618,14 @@
             document.getElementById('servicoId').focus();
         }
 
+        // Devolve true/false: os chamadores devem só anunciar sucesso e limpar
+        // o formulário/estado de edição quando a gravação for confirmada,
+        // caso contrário o alerta de sucesso apagava o aviso de quota (v4.11.3)
         function salvarDados() {
             try {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(registos));
                 localStorage.setItem(STORAGE_KEY + '_version', APP_VERSION);
+                return true;
             } catch (e) {
                 // Espaço esgotado é o único erro realista aqui e a mensagem
                 // técnica do browser não ajuda o utilizador a reagir (v4.11.2)
@@ -5592,6 +5638,7 @@
                     mostrarAlerta('Erro ao salvar dados: ' + e.message, 'warning');
                 }
                 console.error('❌ Erro ao salvar em localStorage:', e);
+                return false;
             }
         }
 
@@ -7416,6 +7463,7 @@
             const totalAntes = registos.length;
 
             if (confirm('Tem certeza que deseja eliminar este registo?')) {
+                const registosAntes = registos;
                 registos = registos.filter(r =>
                     String(r.uuid || '') !== identificadorNormalizado &&
                     String(r.id || '') !== identificadorNormalizado
@@ -7426,10 +7474,14 @@
                     return;
                 }
 
-                salvarDados();
-                aplicarFiltros();
-                atualizarInterface();
-                mostrarAlerta('Registo eliminado com sucesso!', 'success');
+                if (salvarDados()) {
+                    aplicarFiltros();
+                    atualizarInterface();
+                    mostrarAlerta('Registo eliminado com sucesso!', 'success');
+                } else {
+                    // Gravação falhou: reverter a eliminação em memória
+                    registos = registosAntes;
+                }
             }
         }
 
