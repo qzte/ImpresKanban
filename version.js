@@ -4,4 +4,4 @@
 // importScripts('./version.js'). O CI (scripts/check-version-sync.js)
 // falha se o cabeçalho CSS ou a última entrada do changelog em
 // index.html divergirem deste valor.
-const APP_VERSION = '4.15.3';
+const APP_VERSION = '4.16.0';
