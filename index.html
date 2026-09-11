@@ -18,8 +18,23 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js" integrity="sha384-vuyrTV5nkscLp1knFvt+FIHfKKzmROBq5reruhMRslauj54mW+l2B8b6szMN6lCL" crossorigin="anonymous"></script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.15.3 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.16.0 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
+
+           VERSÃO 4.16.0 - Aviso de nova versão na PWA (11 Set 2026)
+           ------------------------------------------------
+           🚨 Uma página já aberta não recarregava sozinha: o sw.js faz
+              skipWaiting() + clients.claim(), portanto o SW novo assumia
+              o controlo enquanto o browser continuava a mostrar o HTML
+              antigo — estado híbrido (HTML antigo + assets novos) que
+              nada na interface denunciava
+           ✨ Listener de 'controllerchange' mostra o aviso fixo
+              "Nova versão disponível — recarregar para atualizar", com
+              botão Recarregar (location.reload) e botão para dispensar
+           🔧 O aviso não aparece na primeira instalação de todas (nessa,
+              o clients.claim dispara o evento mas o HTML em memória já
+              é o mais recente): guardado por navigator.serviceWorker
+              .controller lido antes do registo
 
            VERSÃO 4.15.3 - CI: verificação de sintaxe + testes unitários (11 Set 2026)
            ------------------------------------------------
@@ -1384,6 +1399,75 @@
         .grafico-clickable:hover {
             filter: brightness(1.12);
         }
+
+        /* === AVISO DE NOVA VERSÃO (PWA) === */
+        /* Mostrado quando um Service Worker novo assume o controlo da página:
+           o HTML em memória é o antigo, o SW já serve o novo (ver v4.16.0). */
+        .sw-update-banner {
+            position: fixed;
+            left: 50%;
+            bottom: var(--space-lg);
+            transform: translateX(-50%);
+            z-index: 4000;
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+            max-width: calc(100vw - 2 * var(--space-md));
+            padding: var(--space-md) var(--space-lg);
+            background: var(--neutral-900);
+            color: #FFFFFF;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xl);
+            font-family: var(--font-body);
+            font-size: 0.9rem;
+        }
+
+        .sw-update-banner-text {
+            flex: 1;
+        }
+
+        .sw-update-banner-btn {
+            flex-shrink: 0;
+            padding: var(--space-xs) var(--space-md);
+            background: var(--accent-primary);
+            color: #FFFFFF;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-family: var(--font-body);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background var(--transition-fast);
+        }
+
+        .sw-update-banner-btn:hover {
+            background: var(--accent-primary-light);
+        }
+
+        .sw-update-banner-close {
+            flex-shrink: 0;
+            padding: 0 var(--space-xs);
+            background: none;
+            border: none;
+            color: var(--neutral-400);
+            font-size: 1rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .sw-update-banner-close:hover {
+            color: #FFFFFF;
+        }
+
+        @media (max-width: 480px) {
+            .sw-update-banner {
+                flex-wrap: wrap;
+                left: var(--space-md);
+                right: var(--space-md);
+                transform: none;
+                max-width: none;
+            }
+        }
     </style>
     
     <!-- SCRIPT CRÍTICO: Funções de Navegação (carregadas PRIMEIRO) -->
@@ -1542,6 +1626,14 @@
     </script>
 </head>
 <body>
+    <!-- Aviso de nova versão (v4.16.0): sem isto, uma página já aberta ficava
+         com o HTML antigo servido por um SW novo — estado híbrido invisível
+         para o operador. Preenchido/mostrado pelo bloco de registo do SW. -->
+    <div id="swUpdateBanner" class="sw-update-banner hidden" role="status" aria-live="polite">
+        <span class="sw-update-banner-text">🔄 Nova versão disponível — recarregar para atualizar</span>
+        <button type="button" class="sw-update-banner-btn" id="swUpdateReloadBtn">Recarregar</button>
+        <button type="button" class="sw-update-banner-close" id="swUpdateDismissBtn" aria-label="Dispensar aviso">✕</button>
+    </div>
     <header>
         <div class="container" style="padding-top: 0; padding-bottom: 0;">
             <h1>📦 Análise KPI - Manutenção Kanban</h1>
@@ -8930,6 +9022,38 @@
         // em file:// o registo falha e a app continua a funcionar normalmente
         // (apenas sem instalação/offline).
         if ('serviceWorker' in navigator) {
+            // Lido ANTES de qualquer registo: se já existe um controlador, o
+            // HTML desta página foi servido pelo SW antigo. Quando um SW novo
+            // assume (sw.js faz skipWaiting + clients.claim), o documento em
+            // memória passa a estar desatualizado face ao que o SW serve —
+            // até à v4.16.0 esse estado híbrido era invisível para o operador.
+            const tinhaControlador = !!navigator.serviceWorker.controller;
+            let avisoNovaVersaoVisivel = false;
+
+            const banner = document.getElementById('swUpdateBanner');
+            const btnRecarregar = document.getElementById('swUpdateReloadBtn');
+            const btnDispensar = document.getElementById('swUpdateDismissBtn');
+
+            if (btnRecarregar) {
+                btnRecarregar.addEventListener('click', () => window.location.reload());
+            }
+            if (btnDispensar && banner) {
+                // Dispensar só esconde o aviso: a app continua a correr o HTML
+                // antigo até o operador recarregar (ou reabrir a app)
+                btnDispensar.addEventListener('click', () => banner.classList.add('hidden'));
+            }
+
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                // Primeira instalação de todas: o clients.claim() dispara este
+                // evento, mas o HTML em memória veio da rede e já é o mais
+                // recente — não há nada a avisar
+                if (!tinhaControlador) return;
+                if (avisoNovaVersaoVisivel || !banner) return;
+                avisoNovaVersaoVisivel = true;
+                banner.classList.remove('hidden');
+                console.log('🔄 Nova versão ativa no Service Worker — recarregar para a usar');
+            });
+
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js')
                     .then((reg) => console.log('✅ Service Worker registado:', reg.scope))

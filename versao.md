@@ -4,6 +4,18 @@
 
 ---
 
+## v4.16.0 — 11 Set 2026
+
+### ✨ Feature: Aviso de nova versão na PWA
+
+Uma página já aberta ficava num estado híbrido depois de uma atualização: o `sw.js` faz `skipWaiting()` no install e `clients.claim()` no activate, por isso o Service Worker novo assumia logo o controlo — mas o browser continuava a mostrar o HTML antigo, já carregado. Nada na interface denunciava isso; a atualização só se tornava visível se o operador recarregasse por acaso.
+
+- **Novo:** listener de `controllerchange` que mostra o aviso fixo **"🔄 Nova versão disponível — recarregar para atualizar"**, com botão **Recarregar** e botão para dispensar
+- O aviso não aparece na primeira instalação de todas (aí o `clients.claim()` dispara o mesmo evento, mas o HTML em memória veio da rede e já é o mais recente): guardado por `navigator.serviceWorker.controller`, lido antes do registo
+- Dispensar apenas esconde o aviso — a app continua a correr o HTML antigo até ser recarregada
+
+---
+
 ## v4.15.0 — 08 Set 2026
 
 ### ✨ Feature: Concatenar backups de dois operadores
