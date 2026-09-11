@@ -18,12 +18,32 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js" integrity="sha384-vuyrTV5nkscLp1knFvt+FIHfKKzmROBq5reruhMRslauj54mW+l2B8b6szMN6lCL" crossorigin="anonymous"></script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.15.2 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.15.3 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
 
-           VERSÃO 4.15.2 - Bump de versão (11 Set 2026)
+           VERSÃO 4.15.3 - CI: verificação de sintaxe + testes unitários (11 Set 2026)
            ------------------------------------------------
-           🔢 Sem alterações funcionais — apenas incremento de versão
+           🚨 O CI era o template por omissão do GitHub Actions — um job
+              "build" que só corria `echo Hello, world!`. Zero testes,
+              zero linting, zero validação numa app que gere dados de
+              produção só no browser do operador
+           🔧 scripts/lib/extract-scripts.js: extrai as tags script inline
+              de index.html (com cuidado para não confundir texto de prosa
+              tipo "tag script com src" dentro do próprio changelog com uma
+              tag real) e funções individuais por contagem de chavetas
+              equilibrada, para as poder testar isoladamente sem DOM
+           🔧 scripts/check-js-syntax.js: corre `node --check` a cada tag
+              script inline de index.html — antes, um erro de sintaxe só
+              era descoberto ao abrir a app no browser
+           ✅ test/pure-functions.test.js (node --test, sem dependências):
+              54 testes a isValorAtivo, calcularIntervaloDataRapido,
+              obterChaveSemana, validarDuplicados e normalizarTextoRFID —
+              as funções onde os bugs de v4.9.x aconteceram de facto
+              (comparação `=== true` tolerante, duplicados que ignoravam
+              origem/tipoErro, aritmética de semana ISO/mês/ano)
+           🔧 CI (.github/workflows/blank.yml) passa a correr os 3 checks
+              acima, mais o de sincronização de versão (v4.15.1) — nenhum
+              deles corria antes desta versão
 
            VERSÃO 4.15.1 - Fix: versão mantida à mão em 6 sítios (11 Set 2026)
            ------------------------------------------------
@@ -32,9 +52,9 @@
               sw.js — que costumava ficar esquecido) — um processo de 6
               passos falha, só era questão de tempo
            🔧 APP_VERSION passa a viver só em version.js; index.html
-              carrega-o via <script src>, sw.js via importScripts() — sw.js
-              tinha mesmo ficado preso em 4.14.0 enquanto index.html já ia
-              em 4.15.0
+              carrega-o via tag script com src, sw.js via importScripts()
+              — sw.js tinha mesmo ficado preso em 4.14.0 enquanto
+              index.html já ia em 4.15.0
            🔧 <title> e #appVersionDisplay deixam de ter a versão
               hardcoded no HTML estático (já eram sempre substituídos por
               JS) — só o cabeçalho deste comentário CSS e a entrada mais
