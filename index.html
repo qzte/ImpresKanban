@@ -5322,7 +5322,7 @@
             const textoSelecionado = select?.options[select.selectedIndex]?.textContent || '';
             const erroReferencia = encontrarErro(tipoErro);
             const descricaoReferencia = erroReferencia ? (erroReferencia.Descricao || erroReferencia.descricao || '') : '';
-            return [tipoErro, textoSelecionado, descricaoReferencia].some(valor => normalizarTextoRFID(valor) === 'kb perdido');
+            return [tipoErro, textoSelecionado, descricaoReferencia].some(valor => normalizarTextoRFID(valor).includes('kb perdido'));
         }
 
         function atualizarCampoUltimoEstadoRFID(tipoErroId, grupoId, campoId) {
@@ -6797,7 +6797,7 @@
             const tipoErro = registo?.tipoErro || '';
             const erroReferencia = encontrarErro(tipoErro);
             const descricaoReferencia = erroReferencia ? (erroReferencia.Descricao || erroReferencia.descricao || '') : '';
-            return [tipoErro, descricaoReferencia].some(valor => normalizarTextoRFID(valor) === 'kb perdido');
+            return [tipoErro, descricaoReferencia].some(valor => normalizarTextoRFID(valor).includes('kb perdido'));
         }
 
         function atualizarMensagemOrigemQualidade() {
