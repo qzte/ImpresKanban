@@ -4202,7 +4202,6 @@
         function importarBackup(event) {
             const file = event.target.files[0];
             if (!file) return;
-            event.target.value = ''; // reset input
 
             const ext = file.name.split('.').pop().toLowerCase();
 
@@ -4325,13 +4324,19 @@
                 };
                 reader.onerror = () => mostrarAlerta('❌ Erro ao ler o ficheiro.', 'warning');
                 reader.readAsText(file);
+                // Reset só agora: o FileReader já capturou o ficheiro, por isso
+                // limpar o input permite reimportar o mesmo ficheiro sem afetar a leitura
+                event.target.value = '';
 
             } else if (ext === 'xlsx' || ext === 'xls') {
-                // Fallback: tratar como importação de dados Excel (registos)
+                // Fallback: tratar como importação de dados Excel (registos).
+                // Não limpar o input aqui — importarDados() ainda precisa de
+                // event.target.files[0] e faz o próprio reset no fim.
                 importarDados(event);
 
             } else {
                 mostrarAlerta('❌ Formato não suportado. Use ficheiros .json ou .xlsx', 'warning');
+                event.target.value = '';
             }
         }
 
