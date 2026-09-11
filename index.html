@@ -5317,12 +5317,19 @@
                 .trim();
         }
 
+        const ALIASES_KB_PERDIDO = ['kb perdido', 'kanban perdido'];
+
+        function textoIndicaKBPerdido(valor) {
+            const normalizado = normalizarTextoRFID(valor);
+            return ALIASES_KB_PERDIDO.some(alias => normalizado.includes(alias));
+        }
+
         function isTipoErroKBPerdido(tipoErro, selectId) {
             const select = document.getElementById(selectId);
             const textoSelecionado = select?.options[select.selectedIndex]?.textContent || '';
             const erroReferencia = encontrarErro(tipoErro);
             const descricaoReferencia = erroReferencia ? (erroReferencia.Descricao || erroReferencia.descricao || '') : '';
-            return [tipoErro, textoSelecionado, descricaoReferencia].some(valor => normalizarTextoRFID(valor).includes('kb perdido'));
+            return [tipoErro, textoSelecionado, descricaoReferencia].some(textoIndicaKBPerdido);
         }
 
         function atualizarCampoUltimoEstadoRFID(tipoErroId, grupoId, campoId) {
@@ -6797,7 +6804,7 @@
             const tipoErro = registo?.tipoErro || '';
             const erroReferencia = encontrarErro(tipoErro);
             const descricaoReferencia = erroReferencia ? (erroReferencia.Descricao || erroReferencia.descricao || '') : '';
-            return [tipoErro, descricaoReferencia].some(valor => normalizarTextoRFID(valor).includes('kb perdido'));
+            return [tipoErro, descricaoReferencia].some(textoIndicaKBPerdido);
         }
 
         function atualizarMensagemOrigemQualidade() {
