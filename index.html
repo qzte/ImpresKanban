@@ -6404,174 +6404,223 @@
         }
 
         // ==========================================
+        // FÁBRICA DE FILTROS DE DASHBOARD (DATA + ORIGEM)
+        // ==========================================
+        /**
+         * Cria a família completa de filtros (atalho de data, aplicar, limpar,
+         * e origem: toggle/botões/contagem/mensagem) partilhada pelos
+         * dashboards de Gestão e Qualidade. Substitui 7 pares de funções quase
+         * idênticas (~260 linhas, ~138 divergentes) que já tinham começado a
+         * derivar uma da outra — ex.: só a versão de Gestão repunha as origens
+         * ativas ao "Limpar filtros", a de Qualidade deixava o filtro de
+         * origem intacto. Mesmo padrão que calcularIntervaloDataRapido() já
+         * aplicou com sucesso ao cálculo de intervalos de data partilhado
+         * pelos 3 dashboards (v4.9.12) — aqui aplicado às restantes 7 funções
+         * de filtro (v4.11.5).
+         * @param {object} cfg
+         * @param {string} cfg.idDataInicio - ID do <input type="date"> de início
+         * @param {string} cfg.idDataFim - ID do <input type="date"> de fim
+         * @param {string} cfg.sufixoDom - sufixo dos IDs de botões/contadores de origem ('' Gestão, 'Qual' Qualidade)
+         * @param {string} cfg.idInfoDiv - ID do <div> de mensagem informativa de origem
+         * @param {string} cfg.idInfoText - ID do texto dentro do <div> de mensagem
+         * @param {Set<string>} cfg.origensAtivas - Set de origens ativas (sempre mutado in-place, nunca reatribuído)
+         * @param {(v: string|null) => void} cfg.setDataInicio
+         * @param {(v: string|null) => void} cfg.setDataFim
+         * @param {() => void} cfg.atualizarDashboard - recalcula e redesenha o dashboard
+         */
+        function criarFiltroDashboard(cfg) {
+            const {
+                idDataInicio, idDataFim, sufixoDom, idInfoDiv, idInfoText,
+                origensAtivas, setDataInicio, setDataFim, atualizarDashboard
+            } = cfg;
+
+            function filtroRapido(tipo) {
+                const intervalo = calcularIntervaloDataRapido(tipo);
+                if (!intervalo) return;
+
+                document.getElementById(idDataInicio).value = formatarDataParaInput(intervalo.dataInicio);
+                document.getElementById(idDataFim).value = formatarDataParaInput(intervalo.dataFim);
+                aplicarFiltro();
+            }
+
+            function aplicarFiltro() {
+                const inicio = document.getElementById(idDataInicio).value;
+                const fim = document.getElementById(idDataFim).value;
+
+                if (!inicio || !fim) {
+                    alert('Por favor, selecione ambas as datas (início e fim)');
+                    return;
+                }
+
+                if (inicio > fim) {
+                    alert('A data de início não pode ser posterior à data de fim');
+                    return;
+                }
+
+                setDataInicio(inicio);
+                setDataFim(fim);
+                atualizarDashboard();
+            }
+
+            function limparFiltro() {
+                document.getElementById(idDataInicio).value = '';
+                document.getElementById(idDataFim).value = '';
+                setDataInicio(null);
+                setDataFim(null);
+
+                // Resetar filtro de origem para todas as origens ativas em tOrigem
+                origensAtivas.clear();
+                obterOrigensAtivas().forEach(o => origensAtivas.add(normalizarOrigem(o.Nome)));
+                atualizarBotoesOrigem();
+
+                atualizarDashboard();
+            }
+
+            function toggleOrigem(origem) {
+                const totalOrigens = obterOrigensAtivas().length;
+
+                if (origem === 'todas') {
+                    // Se clicar em "Todas"
+                    if (origensAtivas.size === totalOrigens) {
+                        // Se todas estão ativas, desativa todas
+                        origensAtivas.clear();
+                    } else {
+                        // Se nem todas estão ativas, ativa todas
+                        origensAtivas.clear();
+                        obterOrigensAtivas().forEach(o => {
+                            origensAtivas.add(normalizarOrigem(o.Nome));
+                        });
+                    }
+                } else {
+                    // Toggle individual
+                    if (origensAtivas.has(origem)) {
+                        origensAtivas.delete(origem);
+                    } else {
+                        origensAtivas.add(origem);
+                    }
+                }
+
+                atualizarBotoesOrigem();
+                atualizarDashboard();
+            }
+
+            function atualizarBotoesOrigem() {
+                const totalOrigens = obterOrigensAtivas().length;
+                const btnTodas = document.getElementById(`btnOrigemTodas${sufixoDom}`);
+                if (btnTodas) {
+                    btnTodas.classList.toggle('active', totalOrigens > 0 && origensAtivas.size === totalOrigens);
+                }
+
+                obterOrigensAtivas().forEach(origem => {
+                    const nomeNormalizado = normalizarOrigem(origem.Nome);
+                    const btn = document.getElementById(obterIdOrigem(origem, sufixoDom));
+                    if (btn) {
+                        btn.classList.toggle('active', origensAtivas.has(nomeNormalizado));
+                    }
+                });
+
+                // Atualizar contadores
+                atualizarContagemOrigens();
+
+                // Atualizar mensagem informativa
+                atualizarMensagemOrigem();
+            }
+
+            function atualizarContagemOrigens(registosFiltrados = null) {
+                // Se não passar registos, usa todos (para inicialização)
+                const registosParaContar = registosFiltrados || registos;
+
+                // Contar total de registos
+                const countTodas = registosParaContar.length;
+
+                // Contar registos por cada origem de tOrigem
+                const origensAtivasLista = obterOrigensAtivas();
+                const counts = {};
+
+                // Inicializar contadores para cada origem
+                origensAtivasLista.forEach(origem => {
+                    counts[normalizarOrigem(origem.Nome)] = 0;
+                });
+
+                // Contar registos por origem
+                registosParaContar.forEach(r => {
+                    const origemRegistro = normalizarOrigem(r.origem || '');
+                    if (counts.hasOwnProperty(origemRegistro)) {
+                        counts[origemRegistro]++;
+                    }
+                });
+
+                // Atualizar badge "Todas"
+                const countTodasEl = document.getElementById(`countOrigemTodas${sufixoDom}`);
+                if (countTodasEl) {
+                    countTodasEl.textContent = countTodas;
+                }
+
+                // Atualizar badges de cada origem
+                origensAtivasLista.forEach(origem => {
+                    const countEl = document.getElementById(obterIdContadorOrigem(origem, sufixoDom));
+                    if (countEl) {
+                        countEl.textContent = counts[normalizarOrigem(origem.Nome)] || 0;
+                    }
+                });
+            }
+
+            function atualizarMensagemOrigem() {
+                const infoDiv = document.getElementById(idInfoDiv);
+                const infoText = document.getElementById(idInfoText);
+
+                if (!infoDiv || !infoText) return;
+
+                if (origensAtivas.size === 0) {
+                    infoDiv.style.display = 'block';
+                    infoDiv.style.borderColor = '#EF4444';
+                    infoText.innerHTML = '⚠️ <strong>Nenhuma origem selecionada</strong> - Selecione pelo menos uma origem para ver resultados.';
+                } else if (origensAtivas.size === obterOrigensAtivas().length) {
+                    infoDiv.style.display = 'none';
+                } else {
+                    infoDiv.style.display = 'block';
+                    infoDiv.style.borderColor = '#8B5CF6';
+                    const nomes = Array.from(origensAtivas).map(o => {
+                        const origem = obterOrigensAtivas().find(item => normalizarOrigem(item.Nome) === o);
+                        return origem ? origem.Nome : o;
+                    });
+                    infoText.innerHTML = `🎯 <strong>Filtrado por:</strong> ${nomes.map(escapeHTML).join(', ')}`;
+                }
+            }
+
+            return {
+                filtroRapido, aplicarFiltro, limparFiltro,
+                toggleOrigem, atualizarBotoesOrigem, atualizarContagemOrigens, atualizarMensagemOrigem
+            };
+        }
+
+        // ==========================================
         // DASHBOARD 2: GESTÃO - FILTROS
         // ==========================================
-        
-        function filtroRapidoGestao(tipo) {
-            const intervalo = calcularIntervaloDataRapido(tipo);
-            if (!intervalo) return;
 
-            document.getElementById('gestaoDataInicio').value = formatarDataParaInput(intervalo.dataInicio);
-            document.getElementById('gestaoDataFim').value = formatarDataParaInput(intervalo.dataFim);
-            aplicarFiltroGestao();
-        }
+        const filtroGestao = criarFiltroDashboard({
+            idDataInicio: 'gestaoDataInicio',
+            idDataFim: 'gestaoDataFim',
+            sufixoDom: '',
+            idInfoDiv: 'gestaoOrigemInfo',
+            idInfoText: 'gestaoOrigemInfoText',
+            origensAtivas: gestaoOrigensAtivas,
+            setDataInicio: (v) => { gestaoDataInicio = v; },
+            setDataFim: (v) => { gestaoDataFim = v; },
+            atualizarDashboard: () => atualizarDashboardGestao()
+        });
 
-        function aplicarFiltroGestao() {
-            const inicio = document.getElementById('gestaoDataInicio').value;
-            const fim = document.getElementById('gestaoDataFim').value;
-
-            if (!inicio || !fim) {
-                alert('Por favor, selecione ambas as datas (início e fim)');
-                return;
-            }
-
-            if (inicio > fim) {
-                alert('A data de início não pode ser posterior à data de fim');
-                return;
-            }
-
-            gestaoDataInicio = inicio;
-            gestaoDataFim = fim;
-            atualizarDashboardGestao();
-        }
-
-        function limparFiltroGestao() {
-            document.getElementById('gestaoDataInicio').value = '';
-            document.getElementById('gestaoDataFim').value = '';
-            gestaoDataInicio = null;
-            gestaoDataFim = null;
-            
-            // Resetar filtros de origem para todas as origens ativas em tOrigem
-            gestaoOrigensAtivas = new Set(obterOrigensAtivas().map(o => normalizarOrigem(o.Nome)));
-            atualizarBotoesOrigem();
-            
-            atualizarDashboardGestao();
-        }
+        function filtroRapidoGestao(tipo) { filtroGestao.filtroRapido(tipo); }
+        function aplicarFiltroGestao() { filtroGestao.aplicarFiltro(); }
+        function limparFiltroGestao() { filtroGestao.limparFiltro(); }
 
         // ==========================================
         // GESTÃO DE FILTRO DE ORIGEM
         // ==========================================
-        function toggleOrigemGestao(origem) {
-            const totalOrigens = obterOrigensAtivas().length;
-            
-            if (origem === 'todas') {
-                // Se clicar em "Todas"
-                if (gestaoOrigensAtivas.size === totalOrigens) {
-                    // Se todas estão ativas, desativa todas
-                    gestaoOrigensAtivas.clear();
-                } else {
-                    // Se nem todas estão ativas, ativa todas
-                    gestaoOrigensAtivas.clear();
-                    obterOrigensAtivas().forEach(o => {
-                        const nomeNormalizado = normalizarOrigem(o.Nome);
-                        gestaoOrigensAtivas.add(nomeNormalizado);
-                    });
-                }
-            } else {
-                // Toggle individual
-                if (gestaoOrigensAtivas.has(origem)) {
-                    gestaoOrigensAtivas.delete(origem);
-                } else {
-                    gestaoOrigensAtivas.add(origem);
-                }
-            }
-            
-            atualizarBotoesOrigem();
-            atualizarDashboardGestao();
-        }
-
-        function atualizarBotoesOrigem() {
-            const totalOrigens = obterOrigensAtivas().length;
-            const btnTodas = document.getElementById('btnOrigemTodas');
-            if (btnTodas) {
-                btnTodas.classList.toggle('active', totalOrigens > 0 && gestaoOrigensAtivas.size === totalOrigens);
-            }
-
-            obterOrigensAtivas().forEach(origem => {
-                const nomeNormalizado = normalizarOrigem(origem.Nome);
-                const btn = document.getElementById(obterIdOrigem(origem));
-                if (btn) {
-                    btn.classList.toggle('active', gestaoOrigensAtivas.has(nomeNormalizado));
-                }
-            });
-
-            // Atualizar contadores
-            atualizarContagemOrigens();
-            
-            // Atualizar mensagem informativa
-            atualizarMensagemOrigem();
-        }
-
-        function atualizarContagemOrigens(registosFiltrados = null) {
-            // Se não passar registos, usa todos (para inicialização)
-            const registosParaContar = registosFiltrados || registos;
-            
-            // Contar total de registos
-            const countTodas = registosParaContar.length;
-            
-            // Contar registos por cada origem de tOrigem
-            const origensAtivas = obterOrigensAtivas();
-            const counts = {};
-            
-            // Inicializar contadores para cada origem
-            origensAtivas.forEach(origem => {
-                const nomeNormalizado = normalizarOrigem(origem.Nome);
-                counts[nomeNormalizado] = 0;
-            });
-            
-            // Contar registos por origem
-            registosParaContar.forEach(r => {
-                const origemRegistro = normalizarOrigem(r.origem || '');
-                if (counts.hasOwnProperty(origemRegistro)) {
-                    counts[origemRegistro]++;
-                }
-            });
-            
-            // Atualizar badge "Todas"
-            const countTodasEl = document.getElementById('countOrigemTodas');
-            if (countTodasEl) {
-                countTodasEl.textContent = countTodas;
-            }
-            
-            // Atualizar badges de cada origem
-            origensAtivas.forEach(origem => {
-                const nomeNormalizado = normalizarOrigem(origem.Nome);
-                const countEl = document.getElementById(obterIdContadorOrigem(origem));
-                if (countEl) {
-                    countEl.textContent = counts[nomeNormalizado] || 0;
-                }
-            });
-            
-            // Debug log
-            console.log('📊 Contagem de origens atualizada:', {
-                total: countTodas,
-                porOrigem: counts,
-                usandoFiltrados: registosFiltrados !== null
-            });
-        }
-
-        function atualizarMensagemOrigem() {
-            const infoDiv = document.getElementById('gestaoOrigemInfo');
-            const infoText = document.getElementById('gestaoOrigemInfoText');
-            
-            if (!infoDiv || !infoText) return;
-            
-            if (gestaoOrigensAtivas.size === 0) {
-                infoDiv.style.display = 'block';
-                infoDiv.style.borderColor = '#EF4444';
-                infoText.innerHTML = '⚠️ <strong>Nenhuma origem selecionada</strong> - Selecione pelo menos uma origem para ver resultados.';
-            } else if (gestaoOrigensAtivas.size === obterOrigensAtivas().length) {
-                infoDiv.style.display = 'none';
-            } else {
-                infoDiv.style.display = 'block';
-                infoDiv.style.borderColor = '#8B5CF6';
-                const origens = Array.from(gestaoOrigensAtivas).map(o => {
-                    const origem = obterOrigensAtivas().find(item => normalizarOrigem(item.Nome) === o);
-                    return origem ? origem.Nome : o;
-                });
-                infoText.innerHTML = `🎯 <strong>Filtrado por:</strong> ${origens.map(escapeHTML).join(', ')}`;
-            }
-        }
+        function toggleOrigemGestao(origem) { filtroGestao.toggleOrigem(origem); }
+        function atualizarBotoesOrigem() { filtroGestao.atualizarBotoesOrigem(); }
+        function atualizarContagemOrigens(registosFiltrados = null) { filtroGestao.atualizarContagemOrigens(registosFiltrados); }
+        function atualizarMensagemOrigem() { filtroGestao.atualizarMensagemOrigem(); }
 
         // ==========================================
         // DASHBOARD 2: GESTÃO
@@ -6798,171 +6847,36 @@
         // ==========================================
         // DASHBOARD 3: QUALIDADE - FILTROS
         // ==========================================
-        
-        function filtroRapidoQualidade(tipo) {
-            const intervalo = calcularIntervaloDataRapido(tipo);
-            if (!intervalo) return;
 
-            document.getElementById('qualDataInicio').value = formatarDataParaInput(intervalo.dataInicio);
-            document.getElementById('qualDataFim').value = formatarDataParaInput(intervalo.dataFim);
-            aplicarFiltroQualidade();
-        }
+        const filtroQualidade = criarFiltroDashboard({
+            idDataInicio: 'qualDataInicio',
+            idDataFim: 'qualDataFim',
+            sufixoDom: 'Qual',
+            idInfoDiv: 'qualidadeOrigemInfo',
+            idInfoText: 'qualidadeOrigemInfoText',
+            origensAtivas: qualidadeOrigensAtivas,
+            setDataInicio: (v) => { qualDataInicio = v; },
+            setDataFim: (v) => { qualDataFim = v; },
+            atualizarDashboard: () => atualizarDashboardQualidade()
+        });
 
-        function aplicarFiltroQualidade() {
-            const inicio = document.getElementById('qualDataInicio').value;
-            const fim = document.getElementById('qualDataFim').value;
-
-            if (!inicio || !fim) {
-                alert('Por favor, selecione ambas as datas (início e fim)');
-                return;
-            }
-
-            if (inicio > fim) {
-                alert('A data de início não pode ser posterior à data de fim');
-                return;
-            }
-
-            qualDataInicio = inicio;
-            qualDataFim = fim;
-            atualizarDashboardQualidade();
-        }
-
-        function limparFiltroQualidade() {
-            document.getElementById('qualDataInicio').value = '';
-            document.getElementById('qualDataFim').value = '';
-            qualDataInicio = null;
-            qualDataFim = null;
-            atualizarDashboardQualidade();
-        }
+        function filtroRapidoQualidade(tipo) { filtroQualidade.filtroRapido(tipo); }
+        function aplicarFiltroQualidade() { filtroQualidade.aplicarFiltro(); }
+        function limparFiltroQualidade() { filtroQualidade.limparFiltro(); }
 
         // ==========================================
         // FUNÇÕES DE FILTRO DE ORIGEM - QUALIDADE
         // ==========================================
-        function toggleOrigemQualidade(origem) {
-            const totalOrigens = obterOrigensAtivas().length;
-            
-            if (origem === 'todas') {
-                // Se clicar em "Todas"
-                if (qualidadeOrigensAtivas.size === totalOrigens) {
-                    // Se todas estão ativas, desativa todas
-                    qualidadeOrigensAtivas.clear();
-                } else {
-                    // Se nem todas estão ativas, ativa todas
-                    qualidadeOrigensAtivas.clear();
-                    obterOrigensAtivas().forEach(o => {
-                        const nomeNormalizado = normalizarOrigem(o.Nome);
-                        qualidadeOrigensAtivas.add(nomeNormalizado);
-                    });
-                }
-            } else {
-                // Toggle individual
-                if (qualidadeOrigensAtivas.has(origem)) {
-                    qualidadeOrigensAtivas.delete(origem);
-                } else {
-                    qualidadeOrigensAtivas.add(origem);
-                }
-            }
-            
-            atualizarBotoesOrigemQualidade();
-            atualizarDashboardQualidade();
-        }
-
-        function atualizarBotoesOrigemQualidade() {
-            const totalOrigens = obterOrigensAtivas().length;
-            const btnTodas = document.getElementById('btnOrigemTodasQual');
-            if (btnTodas) {
-                btnTodas.classList.toggle('active', totalOrigens > 0 && qualidadeOrigensAtivas.size === totalOrigens);
-            }
-
-            obterOrigensAtivas().forEach(origem => {
-                const nomeNormalizado = normalizarOrigem(origem.Nome);
-                const btn = document.getElementById(obterIdOrigem(origem, 'Qual'));
-                if (btn) {
-                    btn.classList.toggle('active', qualidadeOrigensAtivas.has(nomeNormalizado));
-                }
-            });
-
-            // Atualizar contadores
-            atualizarContagemOrigensQualidade();
-            
-            // Atualizar mensagem informativa
-            atualizarMensagemOrigemQualidade();
-        }
-
-        function atualizarContagemOrigensQualidade(registosFiltrados = null) {
-            // Se não passar registos, usa todos (para inicialização)
-            const registosParaContar = registosFiltrados || registos;
-            
-            // Contar total de registos
-            const countTotal = registosParaContar.length;
-            
-            // Contar registos por cada origem de tOrigem
-            const origensAtivas = obterOrigensAtivas();
-            const counts = {};
-            
-            // Inicializar contadores para cada origem
-            origensAtivas.forEach(origem => {
-                const nomeNormalizado = normalizarOrigem(origem.Nome);
-                counts[nomeNormalizado] = 0;
-            });
-            
-            // Contar registos por origem
-            registosParaContar.forEach(r => {
-                const origemRegistro = normalizarOrigem(r.origem || '');
-                if (counts.hasOwnProperty(origemRegistro)) {
-                    counts[origemRegistro]++;
-                }
-            });
-            
-            // Atualizar badge "Todas"
-            const countTodasEl = document.getElementById('countOrigemTodasQual');
-            if (countTodasEl) {
-                countTodasEl.textContent = countTotal;
-            }
-            
-            // Atualizar badges de cada origem
-            origensAtivas.forEach(origem => {
-                const nomeNormalizado = normalizarOrigem(origem.Nome);
-                const countEl = document.getElementById(obterIdContadorOrigem(origem, 'Qual'));
-                if (countEl) {
-                    countEl.textContent = counts[nomeNormalizado] || 0;
-                }
-            });
-            
-            // Debug log
-            console.log('📊 Contagem de origens (Qualidade) atualizada:', {
-                total: countTotal,
-                porOrigem: counts,
-                usandoFiltrados: registosFiltrados !== null
-            });
-        }
+        function toggleOrigemQualidade(origem) { filtroQualidade.toggleOrigem(origem); }
+        function atualizarBotoesOrigemQualidade() { filtroQualidade.atualizarBotoesOrigem(); }
+        function atualizarContagemOrigensQualidade(registosFiltrados = null) { filtroQualidade.atualizarContagemOrigens(registosFiltrados); }
+        function atualizarMensagemOrigemQualidade() { filtroQualidade.atualizarMensagemOrigem(); }
 
         function isRegistoErroKBPerdido(registo) {
             const tipoErro = registo?.tipoErro || '';
             const erroReferencia = encontrarErro(tipoErro);
             const descricaoReferencia = erroReferencia ? (erroReferencia.Descricao || erroReferencia.descricao || '') : '';
             return [tipoErro, descricaoReferencia].some(textoIndicaKBPerdido);
-        }
-
-        function atualizarMensagemOrigemQualidade() {
-            const infoDiv = document.getElementById('qualidadeOrigemInfo');
-            const infoText = document.getElementById('qualidadeOrigemInfoText');
-            
-            if (!infoDiv || !infoText) return;
-            
-            if (qualidadeOrigensAtivas.size === 0) {
-                infoDiv.style.display = 'block';
-                infoText.textContent = '⚠️ Nenhuma origem selecionada. Selecione pelo menos uma origem para ver dados.';
-            } else if (qualidadeOrigensAtivas.size === obterOrigensAtivas().length) {
-                infoDiv.style.display = 'none';
-            } else {
-                infoDiv.style.display = 'block';
-                const origens = Array.from(qualidadeOrigensAtivas).map(o => {
-                    const origem = obterOrigensAtivas().find(item => normalizarOrigem(item.Nome) === o);
-                    return origem ? origem.Nome : o;
-                }).join(', ');
-                infoText.textContent = `📊 Filtrando por: ${origens}`;
-            }
         }
 
         // ==========================================
