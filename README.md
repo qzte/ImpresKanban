@@ -1,4 +1,4 @@
-# 📦 Análise KPI para Manutenção do Planeamento
+# 📦 Análise KPI para manutenção do sistema de dupla caixa e a impressão de indicadores visuais
 
 > Ferramenta web **100% offline** para controlo e análise de Kanban e gestão de KPI para equipas de manutenção de supermercados.
 
@@ -221,4 +221,3 @@ Consulte o ficheiro [`versao.md`](./versao.md) para o histórico completo.
 
 *"A simplicidade é o mais alto grau de sofisticação." — Leonardo da Vinci*
 
-**Desenvolvido para: Equipa de Manutenção do Planeamento**
