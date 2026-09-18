@@ -107,7 +107,7 @@ Ficheiro Excel (`.xlsx`) com as seguintes folhas obrigatórias:
 | **T_Erros** | `CODIGO_ERRO`, `DESCRICAO_ERRO`, `ERRO_ATIVO` |
 | **T_Origem** *(opcional)* | `ID_ORIGEM`, `DESCRICAO_ORIGEM`, `ORIGEM_ATIVO` |
 
-> Apenas registos com `*_ATIVO = true` são carregados (aceite também como texto "VERDADEIRO"/"TRUE"/"SIM" ou número `1` — ver `isValorAtivo()`, v4.9.9). Se T_Origem não existir, são usados valores padrão (Armazém, HPH, ACES).
+> Apenas registos com `*_ATIVO = true` são carregados (aceite também como texto "VERDADEIRO"/"TRUE"/"SIM" ou número `1` — ver `isValorAtivo()`, v4.9.9). Se T_Origem não existir, são usados valores padrão (Armazém, Externo A, Externo B).
 
 ---
 

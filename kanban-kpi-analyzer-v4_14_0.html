@@ -164,7 +164,7 @@
               de filtro; substituído por rosa (#EC4899)
            🎨 Fix: badges de origem na tabela/histórico/modal de detalhe
               e a secção "Distribuição por Origem" só conheciam
-              Armazém/HPH/ACES (hardcoded) — origens customizadas de
+              Armazém/Externo A/Externo B (hardcoded) — origens customizadas de
               T_Origem caíam sempre na cor default. Agora usam
               obterCorOrigem(), que deriva a cor da posição da origem
               em tOrigem reaproveitando a paleta CORES_ORIGEM já usada
@@ -2339,7 +2339,7 @@
                                 <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🎯</div>
                                 <h4 style="margin: 0 0 0.5rem 0; color: var(--text-primary); font-size: 1rem;">Distribuicao por Origem</h4>
                                 <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
-                                    Barras visuais mostrando Armazem, HPH e ACES com valores e percentagens
+                                    Barras visuais mostrando as origens configuradas com valores e percentagens
                                 </p>
                             </div>
                             
@@ -4369,8 +4369,8 @@
                         tOrigem = [
                             { ID_Origem: 1, Nome: 'Manutenção', Ativo: true },
                             { ID_Origem: 2, Nome: 'Armazém', Ativo: true },
-                            { ID_Origem: 3, Nome: 'HPH', Ativo: true },
-                            { ID_Origem: 4, Nome: 'ACES', Ativo: true }
+                            { ID_Origem: 3, Nome: 'Externo A', Ativo: true },
+                            { ID_Origem: 4, Nome: 'Externo B', Ativo: true }
                         ];
                         console.log('⚠️ T_Origem não encontrada, usando valores padrão:', tOrigem.length, 'origens');
                     }
@@ -4544,8 +4544,8 @@
                     // Valores padrão se não houver ficheiro de referência
                     tOrigem = [
                         { ID_Origem: 1, Nome: 'Armazém', Ativo: true },
-                        { ID_Origem: 2, Nome: 'HPH', Ativo: true },
-                        { ID_Origem: 3, Nome: 'ACES', Ativo: true }
+                        { ID_Origem: 2, Nome: 'Externo A', Ativo: true },
+                        { ID_Origem: 3, Nome: 'Externo B', Ativo: true }
                     ];
                     console.log('⚠️ T_Origem não encontrada, usando valores padrão');
                 }
@@ -5131,8 +5131,8 @@
                 // Resetar para valores padrão
                 tOrigem = [
                     { ID_Origem: 1, Nome: 'Armazém', Ativo: true },
-                    { ID_Origem: 2, Nome: 'HPH', Ativo: true },
-                    { ID_Origem: 3, Nome: 'ACES', Ativo: true }
+                    { ID_Origem: 2, Nome: 'Externo A', Ativo: true },
+                    { ID_Origem: 3, Nome: 'Externo B', Ativo: true }
                 ];
                 popularOrigens();  // Repopular com valores padrão
                 popularUtilizadores();
@@ -5582,8 +5582,8 @@
         const CORES_ORIGEM = [
             { border: '#8B5CF6', bg: 'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)', shadow: 'rgba(139, 92, 246, 0.3)', icon: '🔧' },  // Roxo - Manutenção
             { border: '#0EA5E9', bg: 'linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%)', shadow: 'rgba(14, 165, 233, 0.3)', icon: '📦' },   // Azul - Armazém
-            { border: '#10B981', bg: 'linear-gradient(135deg, #10B981 0%, #059669 100%)', shadow: 'rgba(16, 185, 129, 0.3)', icon: '🏥' },   // Verde - HPH
-            { border: '#F59E0B', bg: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)', shadow: 'rgba(245, 158, 11, 0.3)', icon: '🔗' },   // Laranja - ACES
+            { border: '#10B981', bg: 'linear-gradient(135deg, #10B981 0%, #059669 100%)', shadow: 'rgba(16, 185, 129, 0.3)', icon: '🏥' },   // Verde - Externo A
+            { border: '#F59E0B', bg: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)', shadow: 'rgba(245, 158, 11, 0.3)', icon: '🔗' },   // Laranja - Externo B
             { border: '#EC4899', bg: 'linear-gradient(135deg, #EC4899 0%, #DB2777 100%)', shadow: 'rgba(236, 72, 153, 0.3)', icon: '📋' }    // Rosa - Outros (v4.9.11: era roxo duplicado do índice 0)
         ];
 
@@ -7306,7 +7306,7 @@
          * Deriva a cor de uma origem a partir da sua posição em tOrigem,
          * reaproveitando a mesma paleta CORES_ORIGEM já usada nos botões de
          * filtro dos dashboards. Substitui o antigo getBadgeClass() que só
-         * conhecia 'Armazém'/'HPH'/'ACES' e ignorava origens customizadas.
+         * conhecia 'Armazém'/'Externo A'/'Externo B' e ignorava origens customizadas.
          */
         function obterCorOrigem(nomeOrigem) {
             const nomeNormalizado = normalizarOrigem(nomeOrigem);
@@ -7887,8 +7887,8 @@
                     cores: {
                         primaria: [15, 118, 110],     // Teal - Registos, Headers
                         sky: [2, 132, 199],           // Sky Blue - Kanbans, Armazem
-                        sucesso: [22, 163, 74],       // Green - Servicos, HPH
-                        aviso: [234, 88, 12],         // Orange - Artigos, ACES
+                        sucesso: [22, 163, 74],       // Green - Servicos
+                        aviso: [234, 88, 12],         // Orange - Artigos
                         roxo: [124, 58, 237],         // Purple - Media Diaria
                         rosa: [225, 29, 72],          // Rose - Dias Ativos
                         texto: [0, 0, 0],
@@ -7965,15 +7965,7 @@
                     
                     if (!distribuicaoOrigem[origemKey]) {
                         distribuicaoOrigem[origemKey] = 0;
-                        if (origemKey === 'armazem') {
-                            origemDisplay[origemKey] = 'Armazem';
-                        } else if (origemKey === 'hph') {
-                            origemDisplay[origemKey] = 'HPH';
-                        } else if (origemKey === 'aces') {
-                            origemDisplay[origemKey] = 'ACES';
-                        } else {
-                            origemDisplay[origemKey] = origemRaw || 'Sem origem';
-                        }
+                        origemDisplay[origemKey] = origemRaw || 'Sem origem';
                     }
                     
                     distribuicaoOrigem[origemKey]++;
@@ -8813,7 +8805,7 @@
          *   substituído por rosa (#EC4899) na 5ª posição da paleta
          * - 🎨 Fix: badges de origem (tabela, histórico, modal de detalhe)
          *   e "Distribuição por Origem" deixaram de estar hardcoded para
-         *   Armazém/HPH/ACES — obterCorOrigem() deriva a cor da posição
+         *   Armazém/Externo A/Externo B — obterCorOrigem() deriva a cor da posição
          *   real da origem em tOrigem, reaproveitando CORES_ORIGEM
          * - 🧹 getBadgeClass() removida
          * 
