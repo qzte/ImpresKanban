@@ -18,8 +18,17 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js" integrity="sha384-vuyrTV5nkscLp1knFvt+FIHfKKzmROBq5reruhMRslauj54mW+l2B8b6szMN6lCL" crossorigin="anonymous"></script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.16.0 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.16.1 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
+
+           VERSÃO 4.16.1 - Filtro Tipo de Erro no Histórico (18 Set 2026)
+           ------------------------------------------------
+           🔄 No Histórico de Registos, o filtro "ID Tag" foi substituído
+              por "Tipo de Erro"
+           🔧 O campo passou de texto livre a dropdown (<select>),
+              populado a partir de T_Erros — mesma abordagem já usada no
+              filtro "Origem" — e o filtro compara pelo código exato do
+              erro selecionado
 
            VERSÃO 4.16.0 - Aviso de nova versão na PWA (11 Set 2026)
            ------------------------------------------------
