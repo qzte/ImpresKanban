@@ -183,7 +183,7 @@ A app estava efetivamente inutilizável em ecrãs de telemóvel. Causa: a barra 
 
 ### 🎨 Cores de origem dinâmicas
 - **Fix:** `CORES_ORIGEM` tinha roxo duplicado (índices 0 e 4) — 5ª origem substituída por rosa (#EC4899)
-- **Fix:** badges de origem e "Distribuição por Origem" só conheciam Armazém/HPH/ACES hardcoded — agora usam `obterCorOrigem()` derivada da posição em `tOrigem`
+- **Fix:** badges de origem e "Distribuição por Origem" só conheciam Armazém/Externo A/Externo B hardcoded — agora usam `obterCorOrigem()` derivada da posição em `tOrigem`
 - 🧹 `getBadgeClass()` removida (substituída por `obterCorOrigem()` + `estiloBadgeOrigem()`)
 
 ---
@@ -231,7 +231,7 @@ A app estava efetivamente inutilizável em ecrãs de telemóvel. Causa: a barra 
 ## v4.8 — 09 Mai 2026
 
 ### 🔄 Origens Dinâmicas + Backup Unificado
-- **Origens dinâmicas:** dropdown de Origem no formulário, batch e histórico carregado diretamente de `tOrigem` — sem hardcoding de "Armazém/HPH/ACES"
+- **Origens dinâmicas:** dropdown de Origem no formulário, batch e histórico carregado diretamente de `tOrigem` — sem hardcoding de "Armazém/Externo A/Externo B"
 - **Backup unificado:** função `criarObjetoBackup()` partilhada entre backup automático e exportação manual — garante consistência de esquema entre os dois fluxos
 - **Eliminação consistente:** aceita `uuid` e `id` legado via comparação `String(r.uuid || '') !== id` — retrocompatível com registos antigos
 - **Filtros de origem dinâmicos:** botões nos dashboards Gestão e Qualidade renderizados automaticamente de `tOrigem`; contadores e toggles funcionam com qualquer número de origens

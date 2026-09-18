@@ -194,7 +194,7 @@ describe('validarDuplicados', () => {
     // dois campos.
     test('mesmos dados mas origem diferente NÃO é duplicado', () => {
         const { validarDuplicados } = contexto();
-        const resultado = validarDuplicados({ ...registoBase, origem: 'HPH' });
+        const resultado = validarDuplicados({ ...registoBase, origem: 'Externo A' });
         assert.equal(resultado, undefined);
     });
 
