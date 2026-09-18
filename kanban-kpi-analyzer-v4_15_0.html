@@ -2349,7 +2349,7 @@
                                 <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🎯</div>
                                 <h4 style="margin: 0 0 0.5rem 0; color: var(--text-primary); font-size: 1rem;">Distribuicao por Origem</h4>
                                 <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
-                                    Barras visuais mostrando Armazem, Externo A e Externo B com valores e percentagens
+                                    Barras visuais mostrando as origens configuradas com valores e percentagens
                                 </p>
                             </div>
                             
@@ -7953,8 +7953,8 @@
                     cores: {
                         primaria: [15, 118, 110],     // Teal - Registos, Headers
                         sky: [2, 132, 199],           // Sky Blue - Kanbans, Armazem
-                        sucesso: [22, 163, 74],       // Green - Servicos, Externo A
-                        aviso: [234, 88, 12],         // Orange - Artigos, Externo B
+                        sucesso: [22, 163, 74],       // Green - Servicos
+                        aviso: [234, 88, 12],         // Orange - Artigos
                         roxo: [124, 58, 237],         // Purple - Media Diaria
                         rosa: [225, 29, 72],          // Rose - Dias Ativos
                         texto: [0, 0, 0],
@@ -8031,15 +8031,7 @@
                     
                     if (!distribuicaoOrigem[origemKey]) {
                         distribuicaoOrigem[origemKey] = 0;
-                        if (origemKey === 'armazem') {
-                            origemDisplay[origemKey] = 'Armazem';
-                        } else if (origemKey === 'externo a') {
-                            origemDisplay[origemKey] = 'Externo A';
-                        } else if (origemKey === 'externo b') {
-                            origemDisplay[origemKey] = 'Externo B';
-                        } else {
-                            origemDisplay[origemKey] = origemRaw || 'Sem origem';
-                        }
+                        origemDisplay[origemKey] = origemRaw || 'Sem origem';
                     }
                     
                     distribuicaoOrigem[origemKey]++;
