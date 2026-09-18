@@ -2023,8 +2023,8 @@
                             <input type="text" id="histArtigo" placeholder="Pesquisar artigo...">
                         </div>
                         <div class="form-group">
-                            <label>ID Tag</label>
-                            <input type="text" id="histIdTag" placeholder="Pesquisar ID tag...">
+                            <label>Tipo de Erro</label>
+                            <input type="text" id="histTipoErro" placeholder="Pesquisar tipo de erro...">
                         </div>
                     </div>
 
@@ -7781,7 +7781,7 @@
             const origem = document.getElementById('histOrigem')?.value;
             const servico = document.getElementById('histServico')?.value.toLowerCase();
             const artigo = document.getElementById('histArtigo')?.value.toLowerCase();
-            const idTag = document.getElementById('histIdTag')?.value.toLowerCase();
+            const tipoErroFiltro = document.getElementById('histTipoErro')?.value.toLowerCase();
             
             // Filtrar registos
             let filtrados = [...registos];
@@ -7807,10 +7807,13 @@
                     (r.artigo || '').toLowerCase().includes(artigo)
                 );
             }
-            if (idTag) {
-                filtrados = filtrados.filter(r => 
-                    (r.idTag || '').toLowerCase().includes(idTag)
-                );
+            if (tipoErroFiltro) {
+                filtrados = filtrados.filter(r => {
+                    const erroInfo = encontrarErro(r.tipoErro);
+                    const descricaoErro = erroInfo ? (erroInfo.Descricao || erroInfo.descricao || '') : '';
+                    return (r.tipoErro || '').toLowerCase().includes(tipoErroFiltro) ||
+                        descricaoErro.toLowerCase().includes(tipoErroFiltro);
+                });
             }
             
             // Atualizar estatísticas
@@ -7895,7 +7898,7 @@
             if (origem) filtrosAtivos.push(`Origem: ${origem}`);
             if (servico) filtrosAtivos.push('Serviço');
             if (artigo) filtrosAtivos.push('Artigo');
-            if (idTag) filtrosAtivos.push('ID Tag');
+            if (tipoErroFiltro) filtrosAtivos.push('Tipo de Erro');
             
             const infoEl = document.getElementById('histFiltroInfo');
             const infoTextEl = document.getElementById('histFiltroInfoText');
@@ -7917,7 +7920,7 @@
             document.getElementById('histOrigem').value = '';
             document.getElementById('histServico').value = '';
             document.getElementById('histArtigo').value = '';
-            document.getElementById('histIdTag').value = '';
+            document.getElementById('histTipoErro').value = '';
             
             aplicarFiltrosHistorico();
         }
