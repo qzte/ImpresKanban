@@ -2024,7 +2024,10 @@
                         </div>
                         <div class="form-group">
                             <label>Tipo de Erro</label>
-                            <input type="text" id="histTipoErro" placeholder="Pesquisar tipo de erro...">
+                            <select id="histTipoErro">
+                                <option value="">Todos os Tipos de Erro</option>
+                                <!-- Preenchido dinamicamente de tErros -->
+                            </select>
                         </div>
                     </div>
 
@@ -7759,14 +7762,34 @@
             });
         }
 
+        function popularFiltroTipoErroHistorico() {
+            const select = document.getElementById('histTipoErro');
+            if (!select) return;
+
+            // Manter opção "Todos"
+            select.innerHTML = '<option value="">Todos os Tipos de Erro</option>';
+
+            tErros.forEach(erro => {
+                const codigo = erro.Codigo ?? erro.codigo;
+                const descricao = erro.Descricao || erro.descricao || codigo;
+                if (codigo !== undefined && codigo !== null && codigo !== '') {
+                    const option = document.createElement('option');
+                    option.value = codigo;
+                    option.textContent = descricao;
+                    select.appendChild(option);
+                }
+            });
+        }
+
         /**
          * Atualiza a tab Histórico com todos os registos (ou filtrados)
          */
         function atualizarHistorico() {
             console.log('📋 Atualizando histórico...');
-            
+
             // Popular filtro de origem se ainda não foi
             popularFiltroOrigemHistorico();
+            popularFiltroTipoErroHistorico();
             
             // Aplicar filtros (se houver)
             aplicarFiltrosHistorico();
@@ -7781,7 +7804,7 @@
             const origem = document.getElementById('histOrigem')?.value;
             const servico = document.getElementById('histServico')?.value.toLowerCase();
             const artigo = document.getElementById('histArtigo')?.value.toLowerCase();
-            const tipoErroFiltro = document.getElementById('histTipoErro')?.value.toLowerCase();
+            const tipoErroFiltro = document.getElementById('histTipoErro')?.value || '';
             
             // Filtrar registos
             let filtrados = [...registos];
@@ -7808,12 +7831,7 @@
                 );
             }
             if (tipoErroFiltro) {
-                filtrados = filtrados.filter(r => {
-                    const erroInfo = encontrarErro(r.tipoErro);
-                    const descricaoErro = erroInfo ? (erroInfo.Descricao || erroInfo.descricao || '') : '';
-                    return (r.tipoErro || '').toLowerCase().includes(tipoErroFiltro) ||
-                        descricaoErro.toLowerCase().includes(tipoErroFiltro);
-                });
+                filtrados = filtrados.filter(r => String(r.tipoErro ?? '').trim() === String(tipoErroFiltro).trim());
             }
             
             // Atualizar estatísticas
