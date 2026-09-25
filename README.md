@@ -2,7 +2,7 @@
 
 > Ferramenta web **100% offline** para controlo e análise de Kanban e gestão de KPI para equipas de manutenção de supermercados.
 
-**Versão atual:** 4.19.0 — servida como `index.html`
+**Versão atual:** 4.20.0 — servida como `index.html`
 
 ---
 
@@ -201,7 +201,7 @@ npm run test:e2e
 | Pasta | O que cobre |
 |---|---|
 | `test/` | Funções puras extraídas de `index.html` (validações, datas, pesquisas nas referências, merge de backups) |
-| `e2e/` | Fluxos completos no browser: arranque, registo individual (validação, duplicados), Histórico (paginação, filtros, editar, eliminar), backup JSON (exportar, importar Concatenar/Substituir, ficheiro inválido), backup semanal e recuperação de dados corrompidos |
+| `e2e/` | Fluxos completos no browser: arranque, registo individual (validação, duplicados), Histórico (paginação, filtros, editar, eliminar), backup JSON (exportar, importar Concatenar/Substituir, ficheiro inválido), backup semanal, recuperação de dados corrompidos e Content-Security-Policy (com xlsx.js/jsPDF/autotable reais — ver `e2e/fixtures/README.md`) |
 
 Os testes de interface correm com o relógio fixo, fuso de Lisboa e sem rede (CDN bloqueadas), por isso dão o mesmo resultado em qualquer dia. As duas suites correm no CI em cada PR.
 
@@ -213,7 +213,8 @@ Consulte o ficheiro [`versao.md`](./versao.md) para o histórico completo.
 
 | Versão | Data | Destaque |
 |---|---|---|
-| **4.19.0** | 25 Set 2026 | 📋 Histórico paginado (100 linhas + "Mostrar mais") |
+| **4.20.0** | 25 Set 2026 | 🔒 Content-Security-Policy |
+| 4.19.0 | 25 Set 2026 | 📋 Histórico paginado (100 linhas + "Mostrar mais") |
 | 4.18.0 | 25 Set 2026 | 💾 Armazenamento: fim da cópia de backup no localStorage, pedido de armazenamento persistente, pesquisas O(1) |
 | 4.17.0 | 25 Set 2026 | ⚡ Revisão de código: carregamento diferido de xlsx.js/jsPDF, testes e robustez |
 | 4.16.1 | 18 Set 2026 | 🔄 Filtro Tipo de Erro (dropdown) no Histórico, em vez de ID Tag |

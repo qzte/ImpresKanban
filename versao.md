@@ -4,6 +4,18 @@
 
 ---
 
+## v4.20.0 — 25 Set 2026
+
+### 🔒 Content-Security-Policy
+
+Segunda camada de defesa além do `escapeHTML()` já aplicado em todas as renderizações de tabelas: se algum escapar (bug novo, backup JSON manipulado), o CSP ainda impede a app de carregar script de um domínio desconhecido ou enviar dados para fora.
+
+- **Novo:** `<meta http-equiv="Content-Security-Policy">` em `index.html`. `script-src`/`style-src` só permitem `'self'`, `cdnjs.cloudflare.com`/`fonts.googleapis.com` (os mesmos domínios que `sw.js` já trata como confiáveis para pré-cache) e `'unsafe-inline'` — necessário porque a app tem ~90 `onclick=""` e ~480 `style=""` inline, arquitetura pré-existente sem build step; removê-los é um refactor à parte. `connect-src`, `object-src`, `base-uri` e `form-action` ficam nas restrições mais apertadas (a app não usa `fetch`/XHR, é 100% offline)
+- `frame-ancestors` (proteção contra clickjacking) não tem efeito num `<meta>` — exige cabeçalho HTTP do servidor que aloja o ficheiro, fora do controlo desta app
+- **Testes:** novo `e2e/csp.e2e.js` corre Importar Referências, Exportar Dados e Relatórios PDF com o `xlsx.js`/`jsPDF`/`autotable` reais da CDN (bytes idênticos, verificados por hash — ver `e2e/fixtures/README.md`) sob esta política, confirmando que nenhuma das bibliotecas precisa de `'unsafe-eval'`
+
+---
+
 ## v4.19.0 — 25 Set 2026
 
 ### 📋 Histórico paginado

@@ -2,6 +2,42 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
+    <!-- Content-Security-Policy (v4.20.0): segunda camada de defesa além do
+         escapeHTML() em todos os pontos de innerHTML — se algum escapar (bug
+         novo, backup JSON manipulado), o CSP ainda impede a app de carregar
+         script de um domínio desconhecido ou enviar dados para fora.
+         - script-src/style-src precisam de 'unsafe-inline': a app tem ~90
+           onclick="" e ~480 style="" inline (arquitetura pré-existente, sem
+           build step). Sem 'unsafe-inline' a interface inteira parava. Isto
+           é uma limitação real: um XSS que escape ao escapeHTML() ainda
+           corre. Removê-la implica trocar os onclick/style inline por
+           addEventListener/classes — feito à parte, fora do âmbito desta
+           alteração.
+         - cdnjs.cloudflare.com e fonts.google*.com são os únicos domínios
+           externos a que a app acede (mesma lista que sw.js já trata como
+           confiável em CDN_HOSTS, para pré-cache); tudo o resto fica de fora.
+         - connect-src/object-src/base-uri/form-action ficam nas suas
+           restrições mais apertadas: a app não usa fetch/XHR (é 100%
+           offline), plugins nem <base>, e não submete formulários (o
+           kanbanForm é sempre intercetado por preventDefault()).
+         - frame-ancestors (clickjacking) e sandbox não têm efeito num
+           <meta> — exigem cabeçalho HTTP do servidor/proxy que aloja o
+           ficheiro; ficam de fora porque esta app não controla esse
+           cabeçalho, só o próprio HTML. Testado em e2e/csp.e2e.js com os
+           mesmos xlsx.js/jsPDF/autotable da CDN (verificados por hash). -->
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+        font-src 'self' https://fonts.gstatic.com;
+        img-src 'self' data:;
+        connect-src 'self';
+        object-src 'none';
+        base-uri 'none';
+        form-action 'self';
+        worker-src 'self';
+        manifest-src 'self';
+    ">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Análise KPI - Manutenção Kanban</title>
     <link rel="manifest" href="manifest.json">
@@ -39,7 +75,7 @@
     </script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.19.0 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.20.0 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
 
            Histórico de versões: versao.md (o changelog que estava aqui
