@@ -39,305 +39,11 @@
     </script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.17.0 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.18.0 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
 
-           VERSÃO 4.17.0 - Revisão de código: performance, testes e robustez (25 Set 2026)
-           ------------------------------------------------
-           ⚡ xlsx.js/jsPDF/autotable deixam de carregar estaticamente no
-              <head> — são injetados sob demanda (carregarScriptExterno())
-              só quando a tab de Importar/Exportar ou Relatórios é usada;
-              o Service Worker continua a pré-cachear os URLs, por isso
-              continua a funcionar offline
-           ⚡ Pesquisa em tempo real (com debounce de 250ms) nos campos de
-              texto do filtro do Histórico (Serviço/Artigo)
-           🧪 Novos testes unitários (encontrarServico/Artigo/Erro,
-              mergeReferencia, isRegistoErroKBPerdido) — ver
-              test/pure-functions.test.js
-           🔒 Limite de 20MB na importação de ficheiros Excel
-           🔒 carregarReferencias() valida que cada tabela lida do
-              localStorage é de facto um array, tal como carregarDados()
-              já fazia — protege contra dados corrompidos por quota excedida
-           ♿ aria-label em botões de ação que só tinham um emoji
-              (remover linha, eliminar registo, fechar modal)
-
-           VERSÃO 4.16.1 - Filtro Tipo de Erro no Histórico (18 Set 2026)
-           ------------------------------------------------
-           🔄 No Histórico de Registos, o filtro "ID Tag" foi substituído
-              por "Tipo de Erro"
-           🔧 O campo passou de texto livre a dropdown (<select>),
-              populado a partir de T_Erros — mesma abordagem já usada no
-              filtro "Origem" — e o filtro compara pelo código exato do
-              erro selecionado
-
-           VERSÃO 4.16.0 - Aviso de nova versão na PWA (11 Set 2026)
-           ------------------------------------------------
-           🚨 Uma página já aberta não recarregava sozinha: o sw.js faz
-              skipWaiting() + clients.claim(), portanto o SW novo assumia
-              o controlo enquanto o browser continuava a mostrar o HTML
-              antigo — estado híbrido (HTML antigo + assets novos) que
-              nada na interface denunciava
-           ✨ Listener de 'controllerchange' mostra o aviso fixo
-              "Nova versão disponível — recarregar para atualizar", com
-              botão Recarregar (location.reload) e botão para dispensar
-           🔧 O aviso não aparece na primeira instalação de todas (nessa,
-              o clients.claim dispara o evento mas o HTML em memória já
-              é o mais recente): guardado por navigator.serviceWorker
-              .controller lido antes do registo
-
-           VERSÃO 4.15.3 - CI: verificação de sintaxe + testes unitários (11 Set 2026)
-           ------------------------------------------------
-           🚨 O CI era o template por omissão do GitHub Actions — um job
-              "build" que só corria `echo Hello, world!`. Zero testes,
-              zero linting, zero validação numa app que gere dados de
-              produção só no browser do operador
-           🔧 scripts/lib/extract-scripts.js: extrai as tags script inline
-              de index.html (com cuidado para não confundir texto de prosa
-              tipo "tag script com src" dentro do próprio changelog com uma
-              tag real) e funções individuais por contagem de chavetas
-              equilibrada, para as poder testar isoladamente sem DOM
-           🔧 scripts/check-js-syntax.js: corre `node --check` a cada tag
-              script inline de index.html — antes, um erro de sintaxe só
-              era descoberto ao abrir a app no browser
-           ✅ test/pure-functions.test.js (node --test, sem dependências):
-              54 testes a isValorAtivo, calcularIntervaloDataRapido,
-              obterChaveSemana, validarDuplicados e normalizarTextoRFID —
-              as funções onde os bugs de v4.9.x aconteceram de facto
-              (comparação `=== true` tolerante, duplicados que ignoravam
-              origem/tipoErro, aritmética de semana ISO/mês/ano)
-           🔧 CI (.github/workflows/blank.yml) passa a correr os 3 checks
-              acima, mais o de sincronização de versão (v4.15.1) — nenhum
-              deles corria antes desta versão
-
-           VERSÃO 4.15.1 - Fix: versão mantida à mão em 6 sítios (11 Set 2026)
-           ------------------------------------------------
-           🔧 A versão era duplicada manualmente em 6 sítios (título, este
-              comentário, APP_VERSION, #appVersionDisplay, changelog, e
-              sw.js — que costumava ficar esquecido) — um processo de 6
-              passos falha, só era questão de tempo
-           🔧 APP_VERSION passa a viver só em version.js; index.html
-              carrega-o via tag script com src, sw.js via importScripts()
-              — sw.js tinha mesmo ficado preso em 4.14.0 enquanto
-              index.html já ia em 4.15.0
-           🔧 <title> e #appVersionDisplay deixam de ter a versão
-              hardcoded no HTML estático (já eram sempre substituídos por
-              JS) — só o cabeçalho deste comentário CSS e a entrada mais
-              recente do changelog continuam manuais (são prosa, não dá
-              para derivar), por isso o CI passa a falhar se estes
-              divergirem de version.js (scripts/check-version-sync.js)
-
-           VERSÃO 4.15.0 - Feature: Concatenar backups (08 Set 2026)
-           ------------------------------------------------
-           ✨ importarBackup() pergunta agora se quer Concatenar (juntar
-              registos do backup aos atuais, sem duplicar por uuid, e
-              unir as tabelas de referência por chave) ou Substituir
-              (comportamento anterior) — permite juntar backups de dois
-              operadores diferentes num único estado
-           🔧 Nova função auxiliar mergeReferencia() para unir tArtigo,
-              tServicos, tUtilizadores, tErros e tOrigem por chave
-
-           VERSÃO 4.14.0 - Feature: Campo Observação no Batch por Artigos (18 Ago 2026)
-           ------------------------------------------------
-           ✨ Cada linha de artigo no registo em batch "Múltiplos Artigos"
-              passa a ter um campo "Observação" opcional, a seguir ao "Qtd
-              Kanbans" — antes o campo obs do registo ficava sempre
-              preenchido com o texto fixo "Batch registo N", sem espaço
-              para uma nota real por artigo
-           🔧 Novo input .batch-artigo-obs por linha; processarBatch()
-              grava o texto introduzido pelo utilizador em vez do rótulo
-              automático anterior
-
-           VERSÃO 4.13.0 - Feature: ID Tag obrigatório para "ID Tag ilegível ou em falta" (17 Ago 2026)
-           ------------------------------------------------
-           ✨ Ao selecionar o Tipo de Erro "ID Tag ilegível ou em falta", o
-              campo "ID Tag" passa a ser obrigatório nos 3 formulários de
-              registo (Identificação, Batch por Artigos e Batch por Serviços)
-           🔧 Segue o mesmo padrão condicional já usado para "Ultimo Estado
-              do RFID" (KB Perdido): isTipoErroIdTagIlegivel(),
-              atualizarCampoIdTagObrigatorio() e
-              atualizarCamposIdTagBatchArtigos()
-
-           VERSÃO 4.12.0 - Feature: Exportar Excel no modal de detalhe (14 Ago 2026)
-           ------------------------------------------------
-           ✨ Botão "📤 Exportar Excel" no popup de detalhe (o que abre ao
-              clicar num gráfico, ex.: "Erro — Caixa Danificada") — exporta os
-              registos atualmente filtrados no modal, incluindo a coluna
-              "Tipo Erro Descrição" (via encontrarErro()), para analisar
-              rapidamente um tipo de erro específico fora da app
-           🔧 Nova função exportarModalDetalheExcel(), reutiliza
-              verificarBibliotecaExcel()/downloadExcelTradicional() já
-              usadas no export de Registos
-
-           VERSÃO 4.11.5 - Fix: Descrição do Tipo de Erro em falta no Excel (13 Ago 2026)
-           ------------------------------------------------
-           🐛 "Exportar para Excel" (Registos) só exportava o código do Tipo
-              de Erro (ex.: "5") — a coluna com a descrição (ex.: "KB Perdido")
-              não existia no ficheiro gerado
-           🔧 Nova coluna "Tipo Erro Descrição" no export, resolvida via
-              encontrarErro(r.tipoErro) a partir de T_Erros
-
-           VERSÃO 4.11.4 - Correção: layout responsivo partido em telemóvel (07 Ago 2026)
-           ------------------------------------------------
-           📱 App inutilizável em ecrãs de telemóvel: a barra de separadores
-              principais (Registos/Dashboards/Relatorios/Gestão) e as
-              sub-barras de separadores não quebravam linha nem faziam
-              scroll — o browser expandia o viewport de layout para caber
-              a linha inteira, e a app inteira renderizava afastada/reduzida
-           🔧 Barras de separadores passam a quebrar linha (flex-wrap) em
-              vez de forçar overflow horizontal da página
-           🔧 html/body: overflow-x: hidden como rede de segurança contra
-              qualquer futuro elemento mais largo que o ecrã
-           🔧 Separadores mais compactos (padding/tamanho de letra) abaixo
-              dos 768px
-           🐛 Badge de versão do cabeçalho deixa de sobrepor o subtítulo
-              quando este quebra em várias linhas em ecrãs estreitos
-
-           VERSÃO 4.11.3 - Identidade visual: ícone Kkpi (03 Ago 2026)
-           ------------------------------------------------
-           🎨 Ícones da app substituídos pelo logótipo Kkpi (vermelho com
-              lettering branco), nas 4 variantes: 192/512 normal e maskable
-           🔗 Ícone ligado também como favicon e apple-touch-icon — a app
-              não tinha nenhum (pedido /favicon.ico devolvia 404)
-           ♻️ Bump de versão renova o CACHE_NAME do Service Worker, para que
-              as PWA já instaladas recebam os ícones novos
-
-           VERSÃO 4.11.2 - Revisão: PWA reparada + integridade de dados (03 Ago 2026)
-           ------------------------------------------------
-           🚑 PWA estava partida: o app shell do Service Worker apontava para
-              o ficheiro versionado e para ./icons/ (inexistente) — cache.addAll
-              falhava e a instalação do SW nunca concluía. Agora usa
-              ./index.html e os ícones da raiz
-           🚑 manifest.json: caminhos dos ícones corrigidos + variantes maskable
-           🧭 SW: fallback de navegação offline e cache restrito a same-origin
-              + CDN conhecidas (prometido na v4.11.0, faltava no ficheiro)
-           🛡️ Registo só é gravado se o serviço e o artigo existirem nas
-              referências — o campo Armazém é readonly e, por isso, está
-              excluído da validação nativa do browser; gravavam-se registos
-              com armazém/descrição vazios que surgiam em branco nos KPI
-           🐛 Referências deixam de falhar por tipo: IDs de serviço e códigos
-              de erro numéricos do Excel são comparados como texto
-              (encontrarServico/encontrarArtigo/encontrarErro)
-           🐛 Artigo aceite sem os zeros à esquerda e gravado na forma canónica
-           🐛 Gravar uma edição já não mostra "Edição cancelada" por cima da
-              confirmação de sucesso
-           🐛 ESTADO_CODIGO tolerante ao tipo/caixa, como isValorAtivo
-           🐛 "Limpar referências" passa a limpar também utilizadores e erros
-           🔒 limparTodosDados deixa de usar localStorage.clear() — apaga só as
-              chaves da app, não as de outras páginas da mesma origem
-           🔒 gerarUUID usa crypto.randomUUID quando disponível
-           💬 Mensagens claras quando o espaço de armazenamento esgota ou a
-              biblioteca de Excel (CDN) não está disponível
-           🧹 atualizarTabela() removida — código morto desde a v3.6.1 (−78 linhas)
-
-           VERSÃO 4.11.1 - Correções de segurança (auditoria) (19 Jul 2026)
-           ------------------------------------------------
-           🔒 SRI (sha384) + crossorigin nos 3 scripts CDN
-           🔒 mostrarAlerta/mostrarAlertaReferencia: mensagem escapada
-              (escapeHTML) antes de innerHTML — <br>/\n preservados
-           🔒 Botões de origem e infoText: origem.Nome escapado
-           
-           VERSÃO 4.11.0 - PWA estável: index.html + SW robusto (18 Jul 2026)
-           ------------------------------------------------
-           📌 App servida como index.html estável — start_url e app shell
-              deixam de depender do nome de ficheiro versionado; bumps
-              futuros já não partem PWAs instaladas
-           🧭 Service Worker: fallback de navegação offline — pedidos de
-              navegação sem cache respondem com o app shell
-           🧹 Service Worker: cache restrito a same-origin + CDN conhecidas
-              (evita crescimento ilimitado do cache com recursos externos)
-           🔢 console.log de arranque usa APP_VERSION (elimina 6ª
-              localização de versão esquecível)
-           
-           VERSÃO 4.10.0 - Progressive Web App (PWA) (11 Jul 2026)
-           ------------------------------------------------
-           📱 App instalável: manifest.json + sw.js (Service Worker)
-              adicionados à raiz do repositório
-           🔌 Funciona 100% offline após a primeira visita online —
-              cache-first para o HTML e para as bibliotecas CDN
-              (xlsx.js, jsPDF, jsPDF-AutoTable, Google Fonts)
-           🎯 theme-color (#0066CC) e ícones (192/512) para ecrã
-              inicial em Android/iOS/Desktop
-           ⚠️ Requer HTTPS ou localhost — não funciona em file://
-              (limitação do Service Worker, não da app)
-           
-           VERSÃO 4.9.13 - Limite de 40 dias no gráfico Atividade por Dia (11 Jul 2026)
-           ------------------------------------------------
-           📅 Gráfico "Atividade por Dia" (dashboard Operacional) agora mostra
-              apenas os últimos 40 dias com registos — evita barras demasiado
-              finas e ilegíveis quando o período filtrado é longo
-           
-           VERSÃO 4.9.12 - Refactor: filtros rápidos unificados (02 Jul 2026)
-           ------------------------------------------------
-           🧹 filtroRapido()/filtroRapidoGestao()/filtroRapidoQualidade()
-              tinham a mesma lógica de cálculo de datas triplicada
-              (hoje/semana/mês/ano) — extraída para uma única função
-              calcularIntervaloDataRapido(tipo); as 3 funções passam a
-              wrappers finos que só tratam dos IDs específicos de cada
-              dashboard. Sem alteração de comportamento. −55 linhas
-           
-           VERSÃO 4.9.11 - Cores de origem dinâmicas (02 Jul 2026)
-           ------------------------------------------------
-           🎨 Fix: CORES_ORIGEM tinha roxo duplicado (índices 0 e 4) —
-              5ª origem ativa repetia visualmente a cor da 1ª nos botões
-              de filtro; substituído por rosa (#EC4899)
-           🎨 Fix: badges de origem na tabela/histórico/modal de detalhe
-              e a secção "Distribuição por Origem" só conheciam
-              Armazém/Externo A/Externo B (hardcoded) — origens customizadas de
-              T_Origem caíam sempre na cor default. Agora usam
-              obterCorOrigem(), que deriva a cor da posição da origem
-              em tOrigem reaproveitando a paleta CORES_ORIGEM já usada
-              nos botões de filtro — mesma linguagem visual, dinâmica
-           🧹 getBadgeClass() removida (substituída por obterCorOrigem()
-              + estiloBadgeOrigem())
-           
-           VERSÃO 4.9.10 - Consistência de filtros e duplicados (02 Jul 2026)
-           ------------------------------------------------
-           🐛 Fix: Dashboard Qualidade com 0 origens selecionadas mostrava
-              TODOS os registos; Dashboard Gestão mostrava 0. Agora consistente:
-              nenhuma origem selecionada = 0 registos em ambos
-           🐛 Fix: validarDuplicados() não considerava origem nem tipoErro —
-              dois registos legítimos no mesmo dia/serviço/artigo/quantidade
-              mas com origem ou motivo diferentes disparavam falso aviso
-              de duplicado
-           🧹 Removida restaurarBackup() — código morto sem nenhuma chamada
-              no HTML (substituída por importarBackup() desde a v4.9.6)
-           
-           VERSÃO 4.9.9 - Fixes de segurança e robustez (02 Jul 2026)
-           ------------------------------------------------
-           🔒 Fix XSS: escapeHTML() em Top Serviços, Top Artigos,
-              Distribuição por Origem, Análise de Erros e KB Perdido/RFID
-              (dados de T_Artigo/T_Serviços/T_Erros ou importação Excel
-              podiam injetar HTML/JS nos Dashboards)
-           🔒 Fix: onclick dos gráficos de erro deixou de interpolar texto
-              livre diretamente no atributo — usa lookup por índice
-           🐛 Fix: filtros *_ATIVO (T_Serviços/T_Utilizadores/T_Erros/T_Origem)
-              comparavam com `=== true`; célula Excel gravada como texto
-              ("VERDADEIRO"/"TRUE"/"1") ou número fazia a tabela carregar
-              0 linhas silenciosamente — nova função isValorAtivo() tolerante
-           
-           VERSÃO 4.9.8 - Fix utilizador "undefined" (11 Jun 2026)
-           ------------------------------------------------
-           📅 Modal de backup semanal bloqueante (overlay semi-transparente)
-           🔒 Só fecha após backup concluído com sucesso
-           ⚙️ Dia configurável via constante BACKUP_DIA_SEMANA
-           💾 Integrado com exportarBackup() existente
-           
-           🧹 v4.9: Limpeza de Código − 860 linhas (10 Mai 2026)
-           🔒 Fix: htmlTags variável global implícita
-           🔧 Fix: mudarOpTab duplicada no head
-           📋 Fix: comentários HTML duplicados removidos
-           
-           💾 v4.8: Backup JSON unificado + origens dinâmicas (09 Mai 2026)
-           ✅ v4.8: Origens dinâmicas derivadas de tOrigem
-           🔒 v4.8: Eliminação consistente por UUID/ID legado
-           
-           🔢 CODIGO: 10 dígitos com zeros (v4.3.1)
-           ✅ Validação de nomes corrigida (v4.3.0)
-           ⭐ Suporte ESTADO_CODIGO (v4.2.0)
-           
-           ✨ Design Distinto: Medical Brutalist aesthetic
-           🎨 Tipografia: DM Sans + IBM Plex Sans
-           🔒 Segurança XSS: Funções escapeHTML e safeSetText
+           Histórico de versões: versao.md (o changelog que estava aqui
+           duplicava-o e era enviado ao browser em cada visita — v4.18.0)
            ===================================================== */
 
         /* === RESET & BASE === */
@@ -1522,6 +1228,20 @@
     <!-- SCRIPT CRÍTICO: Funções de Navegação (carregadas PRIMEIRO) -->
     <script>
         // ==========================================
+        // LOG DE DIAGNÓSTICO
+        // ==========================================
+        // Os ~110 console.log de diagnóstico (mudança de tab, carregamento de
+        // referências, SW, …) só são emitidos com o modo debug ligado — na
+        // consola: localStorage.setItem('kanban_debug', '1') e recarregar.
+        // console.warn/console.error continuam sempre ativos (v4.18.0).
+        const DEBUG_ATIVO = (() => {
+            try { return localStorage.getItem('kanban_debug') === '1'; } catch (e) { return false; }
+        })();
+        function debugLog(...args) {
+            if (DEBUG_ATIVO) console.log(...args);
+        }
+
+        // ==========================================
         // VERSÃO DA APLICAÇÃO
         // ==========================================
         // Definida em version.js (fonte única, carregado por <script src=
@@ -1530,12 +1250,12 @@
         // Atualizar título da página
         document.title = `Análise KPI - Manutenção Kanban v${APP_VERSION}`;
         
-        console.log('🔵 HEAD Script: Definindo funções de navegação');
-        console.log('📦 Versão da Aplicação:', APP_VERSION);
+        debugLog('🔵 HEAD Script: Definindo funções de navegação');
+        debugLog('📦 Versão da Aplicação:', APP_VERSION);
         
         // Função de mudança de tab principal
         window.mudarTabPrincipal = function(tipo) {
-            console.log('📍 mudarTabPrincipal chamada:', tipo);
+            debugLog('📍 mudarTabPrincipal chamada:', tipo);
             
             // Remover active de todas as tabs principais
             document.querySelectorAll('.main-tab').forEach(tab => tab.classList.remove('active'));
@@ -1544,7 +1264,7 @@
             document.querySelectorAll('.main-tab-content').forEach(content => {
                 content.classList.add('hidden');
                 content.style.display = 'none';
-                console.log(`  🔸 Ocultando: ${content.id}`);
+                debugLog(`  🔸 Ocultando: ${content.id}`);
             });
             
             // Repor sub-tabs de operações: ocultar todas as op-tab-content
@@ -1564,7 +1284,7 @@
                 if (contentEl) {
                     contentEl.classList.remove('hidden');
                     contentEl.style.display = 'block';
-                    console.log(`  ✅ Mostrando: tabOperacoes`);
+                    debugLog(`  ✅ Mostrando: tabOperacoes`);
                 }
             } else if (tipo === 'gestao') {
                 const tabEl = document.getElementById('mainTabGestao');
@@ -1573,7 +1293,7 @@
                 if (contentEl) {
                     contentEl.classList.remove('hidden');
                     contentEl.style.display = 'block';
-                    console.log(`  ✅ Mostrando: tabGestao`);
+                    debugLog(`  ✅ Mostrando: tabGestao`);
                 }
             } else if (tipo === 'dashboards') {
                 const tabEl = document.getElementById('mainTabDashboards');
@@ -1582,7 +1302,7 @@
                 if (contentEl) {
                     contentEl.classList.remove('hidden');
                     contentEl.style.display = 'block';
-                    console.log(`  ✅ Mostrando: tabDashboards`);
+                    debugLog(`  ✅ Mostrando: tabDashboards`);
                 }
                 
                 // Atualizar dashboards ao abrir a tab
@@ -1598,14 +1318,14 @@
                 if (contentEl) {
                     contentEl.classList.remove('hidden');
                     contentEl.style.display = 'block';
-                    console.log(`  ✅ Mostrando: tabRelatorios`);
+                    debugLog(`  ✅ Mostrando: tabRelatorios`);
                 }
             }
             
             // VERIFICAÇÃO FINAL: Confirmar que apenas uma tab está visível
             setTimeout(() => {
                 const visiveis = Array.from(document.querySelectorAll('.main-tab-content')).filter(el => !el.classList.contains('hidden'));
-                console.log(`  📊 Tabs visíveis após mudança: ${visiveis.map(el => el.id).join(', ')}`);
+                debugLog(`  📊 Tabs visíveis após mudança: ${visiveis.map(el => el.id).join(', ')}`);
                 if (visiveis.length > 1) {
                     console.error(`  ⚠️ ERRO: Múltiplas tabs visíveis!`, visiveis);
                 }
@@ -1614,7 +1334,7 @@
         
         // Função de mudança de dashboard
         window.mudarDashboard = function(tipo) {
-            console.log('📍 mudarDashboard chamada:', tipo);
+            debugLog('📍 mudarDashboard chamada:', tipo);
             
             // Remover active de todas as tabs
             document.querySelectorAll('.dashboard-tab').forEach(tab => tab.classList.remove('active'));
@@ -1654,7 +1374,7 @@
         // Stub mínimo para evitar erros se chamada antes do body script carregar
         window.mudarOpTab = function(tipo) { console.warn('mudarOpTab stub — body script ainda não carregado'); };
         
-        console.log('✅ HEAD Script: Funções definidas', {
+        debugLog('✅ HEAD Script: Funções definidas', {
             mudarTabPrincipal: typeof window.mudarTabPrincipal,
             mudarDashboard: typeof window.mudarDashboard
         });
@@ -1671,7 +1391,7 @@
         window.editarRegisto = function() { console.warn('editarRegisto ainda não carregada'); };
         window.cancelarEdicao = function() { console.warn('cancelarEdicao ainda não carregada'); };
         
-        console.log('✅ Stubs criados para funções que serão definidas posteriormente');
+        debugLog('✅ Stubs criados para funções que serão definidas posteriormente');
     </script>
 </head>
 <body>
@@ -3027,7 +2747,7 @@
     </div>
 
     <script>
-        console.log('🚀 Script iniciado - v' + APP_VERSION);
+        debugLog('🚀 Script iniciado - v' + APP_VERSION);
         
         // ==========================================
         // BACKUP SEMANAL COM MODAL PERSISTENTE (v4.9.1)
@@ -3127,6 +2847,7 @@
                 const semanaAtual = obterChaveSemana(new Date());
                 localStorage.setItem(STORAGE_BACKUP_SEMANAL, semanaAtual);
                 localStorage.setItem('kanban_backup_semanal_timestamp', timestamp);
+                registarBackupFicheiro(timestamp);
 
                 const modal = document.getElementById('modalBackupSemanal');
                 if (modal) modal.classList.add('hidden');
@@ -3195,6 +2916,16 @@
         const STORAGE_REF_ERROS = 'kanban_ref_erros';
         const STORAGE_REF_ORIGEM = 'kanban_ref_origem';  // NOVO: Storage para origens
         const STORAGE_CITACAO_INDEX = 'kanban_citacao_index';
+        // Data/hora da última exportação de backup JSON para ficheiro (manual
+        // ou semanal) — alimenta o indicador da tab Gestão e "Último backup"
+        const STORAGE_BACKUP_TIMESTAMP = 'kanban_backup_timestamp';
+        // Cópia completa dos dados que o backup automático gravava no próprio
+        // localStorage até v4.17.0. Já não é escrita (ver registarBackupFicheiro);
+        // só é lida para recuperação e apagada assim que os dados carregam bem.
+        const STORAGE_BACKUP_LEGADO = 'kanban_backup';
+        // Um backup em ficheiro é "recente" durante uma semana — o mesmo ritmo
+        // do lembrete de backup semanal (verificarBackupSemanal)
+        const BACKUP_RECENTE_HORAS = 7 * 24;
 
         // Todas as chaves escritas por esta app. Usada para limpar apenas os
         // dados da aplicação, sem tocar no resto da origem (v4.11.2)
@@ -3208,8 +2939,8 @@
             STORAGE_REF_ORIGEM,
             STORAGE_CITACAO_INDEX,
             STORAGE_BACKUP_SEMANAL,
-            'kanban_backup',
-            'kanban_backup_timestamp',
+            STORAGE_BACKUP_LEGADO,
+            STORAGE_BACKUP_TIMESTAMP,
             'kanban_backup_semanal_timestamp'
         ];
         // ==========================================
@@ -3219,7 +2950,7 @@
         // REMOVIDO: Funções duplicadas - já definidas no HEAD
         // mudarTabPrincipal e mudarDashboard já estão em window no HEAD
         
-        console.log('✅ Funções de navegação disponíveis (definidas no HEAD):', {
+        debugLog('✅ Funções de navegação disponíveis (definidas no HEAD):', {
             mudarTabPrincipal: typeof window.mudarTabPrincipal,
             mudarDashboard: typeof window.mudarDashboard
         });
@@ -3229,7 +2960,7 @@
         // ==========================================
         
         window.mudarOpTab = function(tipo) {
-            console.log('📍 mudarOpTab chamada:', tipo);
+            debugLog('📍 mudarOpTab chamada:', tipo);
             
             // Remover active de todas as tabs
             document.querySelectorAll('#tabOperacoes .dashboard-tab').forEach(tab => {
@@ -3405,7 +3136,7 @@
         }
         
         window.processarBatch = function() {
-            console.log('📦 Processando batch...');
+            debugLog('📦 Processando batch...');
             
             // Validar campos comuns
             const data = document.getElementById('batchData').value;
@@ -3416,7 +3147,7 @@
             const ultimoEstadoRFID = document.getElementById('batchUltimoEstadoRFID').value;
             const exigeUltimoEstadoRFID = atualizarCampoUltimoEstadoRFID('batchTipoErro', 'batchUltimoEstadoRFIDGroup', 'batchUltimoEstadoRFID');
             
-            console.log('📋 Campos comuns:', { data, utilizadorUUID, servicoId, origem, tipoErro, ultimoEstadoRFID });
+            debugLog('📋 Campos comuns:', { data, utilizadorUUID, servicoId, origem, tipoErro, ultimoEstadoRFID });
             
             if (!data || !utilizadorUUID || !servicoId || !origem || !tipoErro) {
                 mostrarAlerta('⚠️ Por favor, preencha todos os campos obrigatórios da secção "Informações Comuns"', 'warning');
@@ -3437,21 +3168,21 @@
             const utilizadorNome = selectedOption.dataset.nome || '';
             const utilizadorEmail = selectedOption.dataset.email || '';
             
-            console.log('👤 Utilizador:', { utilizadorUUID, utilizadorNome, utilizadorEmail });
+            debugLog('👤 Utilizador:', { utilizadorUUID, utilizadorNome, utilizadorEmail });
             
             // Obter info do serviço
             const servico = tServicos.find(s => s.ID_Servico === servicoId);
             const servicoNome = servico ? servico.Servico : servicoId;
             const local = servico ? servico.Local : '';
             
-            console.log('🏥 Serviço encontrado:', servico);
-            console.log('🏥 Serviço processado:', { servicoId, servicoNome, local });
+            debugLog('🏥 Serviço encontrado:', servico);
+            debugLog('🏥 Serviço processado:', { servicoId, servicoNome, local });
             
             // Coletar todos os artigos
             const container = document.getElementById('batchArtigosContainer');
             const linhas = container.querySelectorAll('[id^="batch-artigo-"]');
             
-            console.log('📦 Linhas de artigos encontradas:', linhas.length);
+            debugLog('📦 Linhas de artigos encontradas:', linhas.length);
             
             if (linhas.length === 0) {
                 mostrarAlerta('⚠️ Adicione pelo menos um artigo para processar o batch', 'warning');
@@ -3469,7 +3200,7 @@
                 const qtdKanbans = parseInt(linha.querySelector('.batch-artigo-qtd').value) || 1;
                 const obsArtigo = linha.querySelector('.batch-artigo-obs').value.trim();
 
-                console.log(`📦 Artigo ${index + 1}:`, { codigo, armazem, idTag, qtdKanbans, obsArtigo });
+                debugLog(`📦 Artigo ${index + 1}:`, { codigo, armazem, idTag, qtdKanbans, obsArtigo });
                 
                 if (!codigo || !armazem) {
                     erros++;
@@ -3488,7 +3219,7 @@
                 const artigo = tArtigo.find(a => a.CODIGO === codigo);
                 const artigoDescricao = artigo ? (artigo.DESCRICAO_CODIGO || artigo.DESCRICAO || codigo) : codigo;
                 
-                console.log(`📦 Artigo ${index + 1} - descrição encontrada:`, artigo ? artigoDescricao : 'Não encontrado');
+                debugLog(`📦 Artigo ${index + 1} - descrição encontrada:`, artigo ? artigoDescricao : 'Não encontrado');
                 
                 // Criar registo
                 const registo = {
@@ -3514,13 +3245,13 @@
                     obs: obsArtigo
                 };
                 
-                console.log(`✅ Registo ${registosAdicionados + 1} criado:`, registo);
+                debugLog(`✅ Registo ${registosAdicionados + 1} criado:`, registo);
                 
                 registos.push(registo);
                 registosAdicionados++;
             });
             
-            console.log('📊 Resultado final:', { registosAdicionados, erros, totalRegistos: registos.length });
+            debugLog('📊 Resultado final:', { registosAdicionados, erros, totalRegistos: registos.length });
             
             if (registosAdicionados > 0) {
                 if (salvarDados()) {
@@ -3771,7 +3502,7 @@
         }
 
         window.processarBatchServicos = function() {
-            console.log('🏥 Processando batch por serviços...');
+            debugLog('🏥 Processando batch por serviços...');
             
             const data = document.getElementById('batchSvcData').value;
             const utilizadorSelect = document.getElementById('batchSvcUtilizador');
@@ -3935,15 +3666,15 @@
             }
             
             // VERIFICAÇÃO INICIAL: Garantir que apenas a tab Registos está visível
-            console.log('🔵 Inicializando aplicação...');
-            console.log('📦 Versão:', APP_VERSION);
+            debugLog('🔵 Inicializando aplicação...');
+            debugLog('📦 Versão:', APP_VERSION);
             document.querySelectorAll('.main-tab-content').forEach((content, index) => {
                 if (content.id !== 'tabOperacoes') {
                     content.classList.add('hidden');
-                    console.log(`  🔸 Forçando ocultação de: ${content.id}`);
+                    debugLog(`  🔸 Forçando ocultação de: ${content.id}`);
                 }
             });
-            console.log('  ✅ Tab Registos visível, outras ocultas');
+            debugLog('  ✅ Tab Registos visível, outras ocultas');
             
             // Mostrar citação inspiradora
             mostrarCitacao();
@@ -3984,8 +3715,8 @@
             // Configurar ID Tag obrigatório quando o Tipo de Erro é "ID Tag ilegível ou em falta"
             configurarIdTagObrigatorio();
 
-            // Configurar backup antes de fechar
-            configurarBackupAutomatico();
+            // Proteger os dados locais contra limpeza automática pelo browser
+            pedirArmazenamentoPersistente();
             
             // Atualizar indicador visual da tab Gestão de Dados
             atualizarIndicadorTabGestao();
@@ -3996,7 +3727,7 @@
             
         });
 
-        // Sistema de Backup Automático
+        // Sistema de Backup (objeto partilhado pela exportação manual e semanal)
         function criarObjetoBackup(timestamp = new Date().toISOString(), opcoes = {}) {
             const { incluirReferencias = true } = opcoes;
             const backup = {
@@ -4019,71 +3750,37 @@
             return backup;
         }
 
-        function configurarBackupAutomatico() {
-            // Backup ao fechar a janela/aba
-            window.addEventListener('beforeunload', function(e) {
-                fazerBackupCompleto();
-            });
-
-            // Backup periódico a cada 5 minutos (segurança extra)
-            setInterval(function() {
-                fazerBackupCompleto(true); // true = silencioso
-            }, 5 * 60 * 1000); // 5 minutos
-
-            // Backup ao perder foco da janela (usuário muda de aba/aplicação)
-            document.addEventListener('visibilitychange', function() {
-                if (document.hidden) {
-                    fazerBackupCompleto(true);
-                }
-            });
+        // Até v4.17.0 havia aqui um "backup automático" (ao fechar a janela, a
+        // cada 5 min e ao mudar de separador) que gravava uma cópia completa
+        // dos registos e referências no PRÓPRIO localStorage. Foi removido
+        // (v4.18.0): gastava cerca de metade da quota (~5MB) só com a cópia,
+        // não protegia do cenário real de perda (o browser apagar os dados do
+        // site apaga a cópia junto) e regravava tudo mesmo sem alterações —
+        // cada alteração já é gravada de imediato por salvarDados()/
+        // salvarReferencias(), com reversão em caso de falha. O backup que
+        // conta é o ficheiro JSON exportado; esta função regista quando foi.
+        function registarBackupFicheiro(timestamp) {
+            try {
+                localStorage.setItem(STORAGE_BACKUP_TIMESTAMP, timestamp);
+            } catch (e) {
+                console.warn('⚠️ Não foi possível registar a data do backup:', e);
+            }
+            atualizarIndicadorTabGestao();
+            atualizarInfoBackup();
         }
 
-        function fazerBackupCompleto(silencioso = false) {
-            try {
-                const timestamp = new Date().toISOString();
-                
-                // Criar objeto de backup com o mesmo esquema usado na exportação manual
-                const backup = criarObjetoBackup(timestamp);
-
-                // Tentar salvar backup
-                try {
-                    localStorage.setItem('kanban_backup', JSON.stringify(backup));
-                    localStorage.setItem('kanban_backup_timestamp', timestamp);
-                } catch (quotaError) {
-                    // Se exceder quota, manter apenas últimos 100 registos no backup
-                    console.warn('⚠️ Quota excedida, criando backup reduzido...');
-                    const backupReduzido = {
-                        ...criarObjetoBackup(timestamp, { incluirReferencias: false }),
-                        registos: registos.slice(-100), // Últimos 100 registos
-                        totalRegistos: registos.length,
-                        backupReduzido: true
-                    };
-                    localStorage.setItem('kanban_backup', JSON.stringify(backupReduzido));
-                    localStorage.setItem('kanban_backup_timestamp', timestamp);
-                }
-
-                // Salvar também dados individuais (redundância)
-                salvarDados();
-                salvarReferencias();
-
-                // Log silencioso ou visível
-                if (!silencioso) {
-                    console.log('✅ Backup completo realizado:', {
-                        registos: backup.totalRegistos,
-                        kanbans: backup.totalKanbans,
-                        timestamp: timestamp
-                    });
-                }
-
-                // Atualizar indicador visual da tab
-                atualizarIndicadorTabGestao();
-
-                return true;
-            } catch (error) {
-                console.error('❌ Erro ao fazer backup:', error);
-                // Não bloquear a aplicação por erro de backup
-                return false;
-            }
+        // Pede ao browser para não apagar os dados desta origem quando falta
+        // espaço em disco (sem isto o localStorage é "best-effort" e pode ser
+        // despejado). Numa PWA instalada o pedido costuma ser aceite sem
+        // perguntar nada ao utilizador. Melhor esforço: não bloqueia o arranque.
+        function pedirArmazenamentoPersistente() {
+            if (!navigator.storage || typeof navigator.storage.persist !== 'function') return;
+            navigator.storage.persisted()
+                .then(jaPersistente => jaPersistente || navigator.storage.persist())
+                .then(persistente => {
+                    if (!persistente) console.warn('⚠️ Armazenamento não persistente — exporte backups regularmente.');
+                })
+                .catch(e => console.warn('⚠️ Falha ao pedir armazenamento persistente:', e));
         }
 
         // Nota: restaurarBackup() removida em v4.9.9 — código morto sem nenhuma
@@ -4093,7 +3790,7 @@
             try {
                 const timestamp = new Date().toISOString();
                 
-                // Criar backup JSON com o mesmo esquema usado pelo backup automático
+                // Criar backup JSON com o mesmo esquema usado pelo backup semanal
                 const backupRegistos = criarObjetoBackup(timestamp);
                 
                 const dataBackup = new Date().toISOString().split('T')[0];
@@ -4118,6 +3815,7 @@
                         const writable = await handle.createWritable();
                         await writable.write(dataStr);
                         await writable.close();
+                        registarBackupFicheiro(timestamp);
                         
                         mostrarAlerta(
                             `✅ Backup JSON guardado com sucesso!<br><br>` +
@@ -4136,7 +3834,7 @@
                             mostrarAlerta('ℹ️ Operação cancelada pelo utilizador.', 'info');
                             return;
                         }
-                        console.log('File System Access API falhou, usando fallback:', err);
+                        debugLog('File System Access API falhou, usando fallback:', err);
                         // Continua para fallback
                     }
                 }
@@ -4155,6 +3853,7 @@
                     document.body.removeChild(link);
                     URL.revokeObjectURL(url);
                 }, 100);
+                registarBackupFicheiro(timestamp);
                 
                 mostrarAlerta(
                     `✅ Backup JSON iniciado!<br><br>` +
@@ -4669,9 +4368,9 @@
                             CODIGO: String(a.CODIGO).padStart(10, '0'), // Garantir 10 dígitos com zeros à esquerda
                             ARMAZEM: String(a.ARMAZEM).padStart(2, '0') // Garantir 2 dígitos
                         }));
-                    console.log('✅ T_Artigo carregada:', tArtigo.length, 'artigos ativos');
+                    debugLog('✅ T_Artigo carregada:', tArtigo.length, 'artigos ativos');
                     if (tArtigo.length > 0) {
-                        console.log('   Primeiro artigo - CODIGO:', tArtigo[0].CODIGO, '(comprimento:', tArtigo[0].CODIGO.length, ')');
+                        debugLog('   Primeiro artigo - CODIGO:', tArtigo[0].CODIGO, '(comprimento:', tArtigo[0].CODIGO.length, ')');
                     }
                     
                     // Carregar T_Serviços
@@ -4685,7 +4384,7 @@
                             Servico: s.DESCRICAO_SERVICO,
                             Local: s.LOCAL_SERVICO
                         }));
-                    console.log('✅ T_Serviços carregada:', tServicos.length, 'serviços ativos');
+                    debugLog('✅ T_Serviços carregada:', tServicos.length, 'serviços ativos');
 
                     // Carregar T_Utilizadores (obrigatória)
                     const sheetUtilizadores = workbook.Sheets['T_Utilizadores'];
@@ -4697,7 +4396,7 @@
                             UUID: u.UUID_UTILIZADOR,
                             Nome: u.DESCRICAO_UTILIZADOR
                         }));
-                    console.log('✅ T_Utilizadores carregada:', tUtilizadores.length, 'utilizadores ativos');
+                    debugLog('✅ T_Utilizadores carregada:', tUtilizadores.length, 'utilizadores ativos');
 
                     // Carregar T_Erros (obrigatória)
                     const sheetErros = workbook.Sheets['T_Erros'];
@@ -4709,9 +4408,9 @@
                             Codigo: e.CODIGO_ERRO,
                             Descricao: e.DESCRICAO_ERRO
                         }));
-                    console.log('✅ T_Erros carregada:', tErros.length, 'erros ativos');
+                    debugLog('✅ T_Erros carregada:', tErros.length, 'erros ativos');
                     if (tErros.length > 0) {
-                        console.log('Primeiro erro:', tErros[0]);
+                        debugLog('Primeiro erro:', tErros[0]);
                     }
 
                     // Carregar T_Origem (OPCIONAL - usar padrão se não existir)
@@ -4727,9 +4426,9 @@
                                 Descricao: o.DESCRICAO_ORIGEM_MOTIVO,
                                 Ativo: o.ORIGEM_ATIVO
                             }));
-                        console.log('✅ T_Origem carregada:', tOrigem.length, 'origens ativas');
+                        debugLog('✅ T_Origem carregada:', tOrigem.length, 'origens ativas');
                         if (tOrigem.length > 0) {
-                            console.log('Primeira origem:', tOrigem[0]);
+                            debugLog('Primeira origem:', tOrigem[0]);
                         }
                     } else {
                         // Valores padrão se T_Origem não existir
@@ -4739,7 +4438,7 @@
                             { ID_Origem: 3, Nome: 'Externo A', Ativo: true },
                             { ID_Origem: 4, Nome: 'Externo B', Ativo: true }
                         ];
-                        console.log('⚠️ T_Origem não encontrada, usando valores padrão:', tOrigem.length, 'origens');
+                        debugLog('⚠️ T_Origem não encontrada, usando valores padrão:', tOrigem.length, 'origens');
                     }
 
                     // Validar estrutura das tabelas
@@ -4857,11 +4556,11 @@
                 return false;
             }
 
-            console.log('✅ Todas as tabelas validadas com sucesso!');
-            console.log(`   - ${tArtigo.length} artigos`);
-            console.log(`   - ${tServicos.length} serviços`);
-            console.log(`   - ${tUtilizadores.length} utilizadores`);
-            console.log(`   - ${tErros.length} tipos de erro`);
+            debugLog('✅ Todas as tabelas validadas com sucesso!');
+            debugLog(`   - ${tArtigo.length} artigos`);
+            debugLog(`   - ${tServicos.length} serviços`);
+            debugLog(`   - ${tUtilizadores.length} utilizadores`);
+            debugLog(`   - ${tErros.length} tipos de erro`);
 
             return true;
         }
@@ -4908,19 +4607,19 @@
                 if (utilizadores) tUtilizadores = paraArrayOuVazio(utilizadores, 'T_Utilizadores');
                 if (erros) {
                     tErros = paraArrayOuVazio(erros, 'T_Erros');
-                    console.log('✅ T_Erros carregada do localStorage:', tErros.length, 'erros');
+                    debugLog('✅ T_Erros carregada do localStorage:', tErros.length, 'erros');
                     if (tErros.length > 0) {
-                        console.log('Primeiro erro:', tErros[0]);
+                        debugLog('Primeiro erro:', tErros[0]);
                     }
                 } else {
                     tErros = [];
-                    console.log('⚠️ T_Erros não encontrada no localStorage');
+                    debugLog('⚠️ T_Erros não encontrada no localStorage');
                 }
 
                 // NOVO: Carregar origens
                 if (origem) {
                     tOrigem = paraArrayOuVazio(origem, 'T_Origem');
-                    console.log('✅ T_Origem carregada do localStorage:', tOrigem.length, 'origens');
+                    debugLog('✅ T_Origem carregada do localStorage:', tOrigem.length, 'origens');
                 } else {
                     // Valores padrão se não houver ficheiro de referência
                     tOrigem = [
@@ -4928,7 +4627,7 @@
                         { ID_Origem: 2, Nome: 'Externo A', Ativo: true },
                         { ID_Origem: 3, Nome: 'Externo B', Ativo: true }
                     ];
-                    console.log('⚠️ T_Origem não encontrada, usando valores padrão');
+                    debugLog('⚠️ T_Origem não encontrada, usando valores padrão');
                 }
                 
                 // Popular utilizadores, erros e origens sempre
@@ -5024,7 +4723,7 @@
             const referenciasCarregadas = (tArtigo.length > 0 && tServicos.length > 0);
             
             // Verificar timestamp do último backup
-            const lastBackup = localStorage.getItem('kanban_backup_timestamp');
+            const lastBackup = localStorage.getItem(STORAGE_BACKUP_TIMESTAMP);
             let backupRecente = false;
             let horasDesdeBackup = null;
             
@@ -5033,7 +4732,7 @@
                 const now = new Date();
                 const diffMs = now - backupDate;
                 horasDesdeBackup = Math.floor(diffMs / (1000 * 60 * 60));
-                backupRecente = horasDesdeBackup < 23;
+                backupRecente = horasDesdeBackup < BACKUP_RECENTE_HORAS;
             }
             
             // Remover classes anteriores
@@ -5041,10 +4740,10 @@
             
             // Aplicar cor baseada nas condições
             if (referenciasCarregadas && backupRecente) {
-                // Verde: Tudo OK (referências + backup < 23h)
+                // Verde: Tudo OK (referências + backup em ficheiro há menos de BACKUP_RECENTE_HORAS)
                 tabGestao.classList.add('tab-status-success');
             } else if (referenciasCarregadas && !backupRecente) {
-                // Amarelo: Referências OK mas backup antigo (> 23h) ou sem backup
+                // Amarelo: Referências OK mas backup em ficheiro antigo ou inexistente
                 tabGestao.classList.add('tab-status-warning');
             } else {
                 // Vermelho: Sem referências e sem backup recente
@@ -5277,16 +4976,16 @@
                 select.appendChild(option);
             });
             
-            console.log('✅ Dropdown batchOrigem populado com', origensAtivas.length, 'origens');
+            debugLog('✅ Dropdown batchOrigem populado com', origensAtivas.length, 'origens');
             
             // Popular também o modo batch por serviços
             popularBatchSvcOrigens();
         }
 
         function popularErros() {
-            console.log('📋 popularErros() chamada');
-            console.log('   tErros.length:', tErros.length);
-            console.log('   tErros array:', tErros);
+            debugLog('📋 popularErros() chamada');
+            debugLog('   tErros.length:', tErros.length);
+            debugLog('   tErros array:', tErros);
             
             const select = document.getElementById('tipoErro');
             if (!select) {
@@ -5294,7 +4993,7 @@
                 return;
             }
             
-            console.log('✅ Select tipoErro encontrado');
+            debugLog('✅ Select tipoErro encontrado');
             
             // Manter opção default vazia
             select.innerHTML = '<option value="">Selecione o tipo de erro...</option>';
@@ -5316,12 +5015,12 @@
                 adicionados++;
                 
                 if (idx < 3) {
-                    console.log(`  ✓ Adicionado #${idx + 1}: ${codigo} - ${descricao}`);
+                    debugLog(`  ✓ Adicionado #${idx + 1}: ${codigo} - ${descricao}`);
                 }
             });
             
-            console.log(`✅ Total de ${adicionados} erros adicionados ao dropdown (de ${tErros.length} no array)`);
-            console.log(`   Options no select: ${select.options.length}`);
+            debugLog(`✅ Total de ${adicionados} erros adicionados ao dropdown (de ${tErros.length} no array)`);
+            debugLog(`   Options no select: ${select.options.length}`);
 
             const hint = document.getElementById('tipoErroHint');
             if (!hint) {
@@ -5347,26 +5046,26 @@
          * Carrega valores de T_Origem (ficheiro de referência)
          */
         function popularOrigens() {
-            console.log('📋 popularOrigens() chamada');
-            console.log('   tOrigem:', tOrigem);
-            console.log('   tOrigem.length:', tOrigem.length);
+            debugLog('📋 popularOrigens() chamada');
+            debugLog('   tOrigem:', tOrigem);
+            debugLog('   tOrigem.length:', tOrigem.length);
             
             const select = document.getElementById('origem');
-            console.log('   Select origem element:', select);
+            debugLog('   Select origem element:', select);
             
             if (!select) {
                 console.error('❌ Select origem não encontrado no DOM!');
                 console.error('   Tentando procurar em todo o documento...');
                 const allSelects = document.querySelectorAll('select');
-                console.log('   Total de selects no documento:', allSelects.length);
+                debugLog('   Total de selects no documento:', allSelects.length);
                 allSelects.forEach((s, i) => {
-                    console.log(`   Select ${i}: id="${s.id}", name="${s.name}"`);
+                    debugLog(`   Select ${i}: id="${s.id}", name="${s.name}"`);
                 });
                 return;
             }
             
-            console.log('✅ Select origem encontrado');
-            console.log('   Select atual innerHTML:', select.innerHTML);
+            debugLog('✅ Select origem encontrado');
+            debugLog('   Select atual innerHTML:', select.innerHTML);
             
             // Manter opção default vazia
             select.innerHTML = '<option value="">Selecione...</option>';
@@ -5377,7 +5076,7 @@
                 const nome = origem.Nome || origem.nome;
                 const ativo = origem.Ativo !== undefined ? origem.Ativo : origem.ativo !== undefined ? origem.ativo : true;
                 
-                console.log(`   Processando origem ${idx}:`, { nome, ativo, origem });
+                debugLog(`   Processando origem ${idx}:`, { nome, ativo, origem });
                 
                 if (!nome) {
                     console.warn('⚠️ Origem sem nome no índice', idx, ':', origem);
@@ -5386,7 +5085,7 @@
                 
                 // Apenas adicionar se estiver ativo
                 if (!ativo) {
-                    console.log(`  ⊗ Origem inativa não adicionada: ${nome}`);
+                    debugLog(`  ⊗ Origem inativa não adicionada: ${nome}`);
                     return;
                 }
                 
@@ -5396,15 +5095,47 @@
                 select.appendChild(option);
                 adicionados++;
                 
-                console.log(`  ✓ Adicionado #${idx + 1}: ${nome}`);
+                debugLog(`  ✓ Adicionado #${idx + 1}: ${nome}`);
             });
             
-            console.log(`✅ Total de ${adicionados} origens adicionadas ao dropdown (de ${tOrigem.length} no array)`);
-            console.log(`   Options no select: ${select.options.length}`);
-            console.log('   Select final innerHTML:', select.innerHTML);
+            debugLog(`✅ Total de ${adicionados} origens adicionadas ao dropdown (de ${tOrigem.length} no array)`);
+            debugLog(`   Options no select: ${select.options.length}`);
+            debugLog('   Select final innerHTML:', select.innerHTML);
             
             // Popular também o batch
             popularBatchOrigens();
+        }
+
+        /**
+         * Índice chave → posição da primeira ocorrência numa tabela de
+         * referência, para as pesquisas encontrar*() serem O(1) em vez de
+         * percorrer a tabela com .find() — o Histórico chama encontrarErro()
+         * por linha e T_Artigo pode ter milhares de entradas (v4.18.0).
+         * Guardado por identidade do array: as tabelas são sempre
+         * reatribuídas (nunca mutadas no lugar), por isso uma tabela nova
+         * gera um índice novo. O tamanho é verificado como salvaguarda.
+         * @param {Array} lista
+         * @param {string} nome - identifica o índice (uma tabela pode ter vários)
+         * @param {function(Object): *} chaveFn
+         * @returns {Map<string, number>}
+         */
+        function obterIndiceReferencia(lista, nome, chaveFn) {
+            if (!obterIndiceReferencia.cache) obterIndiceReferencia.cache = new WeakMap();
+            let porNome = obterIndiceReferencia.cache.get(lista);
+            if (!porNome) {
+                porNome = {};
+                obterIndiceReferencia.cache.set(lista, porNome);
+            }
+            let entrada = porNome[nome];
+            if (!entrada || entrada.tamanho !== lista.length) {
+                const mapa = new Map();
+                lista.forEach((item, i) => {
+                    const chave = String(chaveFn(item) ?? '').trim();
+                    if (!mapa.has(chave)) mapa.set(chave, i); // 1ª ocorrência, como .find()
+                });
+                entrada = porNome[nome] = { tamanho: lista.length, mapa };
+            }
+            return entrada.mapa;
         }
 
         /**
@@ -5418,7 +5149,8 @@
         function encontrarServico(idServico) {
             const alvo = String(idServico ?? '').trim();
             if (!alvo) return undefined;
-            return tServicos.find(s => String(s.ID_Servico ?? '').trim() === alvo);
+            const i = obterIndiceReferencia(tServicos, 'id', s => s.ID_Servico).get(alvo);
+            return i === undefined ? undefined : tServicos[i];
         }
 
         /**
@@ -5432,10 +5164,14 @@
             const alvo = String(codigo ?? '').trim();
             if (!alvo) return undefined;
             const alvoPad = alvo.padStart(10, '0');
-            return tArtigo.find(a => {
-                const ref = String(a.CODIGO ?? '').trim();
-                return ref === alvo || ref === alvoPad;
-            });
+            const indice = obterIndiceReferencia(tArtigo, 'codigo', a => a.CODIGO);
+            const iExato = indice.get(alvo);
+            const iPad = indice.get(alvoPad);
+            // Se existirem as duas formas, manter a que aparece primeiro (= .find())
+            if (iExato === undefined && iPad === undefined) return undefined;
+            if (iExato === undefined) return tArtigo[iPad];
+            if (iPad === undefined) return tArtigo[iExato];
+            return tArtigo[Math.min(iExato, iPad)];
         }
 
         /**
@@ -5450,7 +5186,8 @@
         function encontrarErro(codigo) {
             const alvo = String(codigo ?? '').trim();
             if (!alvo) return undefined;
-            return tErros.find(e => String(e.Codigo ?? e.codigo ?? '').trim() === alvo);
+            const i = obterIndiceReferencia(tErros, 'codigo', e => e.Codigo ?? e.codigo).get(alvo);
+            return i === undefined ? undefined : tErros[i];
         }
 
         function validarServico(idServico) {
@@ -5973,8 +5710,12 @@
                     // Salvar se houve migração
                     if (modificado) {
                         salvarDados();
-                        console.log('✅ Migração completa: UUIDs adicionados aos registos antigos');
+                        debugLog('✅ Migração completa: UUIDs adicionados aos registos antigos');
                     }
+
+                    // Dados principais bons: a cópia legada do antigo backup
+                    // automático (≤ v4.17.0) já não é precisa e ocupava quota
+                    localStorage.removeItem(STORAGE_BACKUP_LEGADO);
 
                     atualizarInterface();
                 }
@@ -5991,12 +5732,13 @@
         }
 
         // Chamada quando os dados principais não puderam ser carregados. Tenta
-        // oferecer ao utilizador o backup automático em 'kanban_backup' (gravado
-        // ao fechar a janela, periodicamente, e ao mudar de separador) em vez de
-        // deixar a aplicação arrancar sem nenhum caminho de recuperação.
+        // oferecer ao utilizador a cópia em STORAGE_BACKUP_LEGADO que o antigo
+        // backup automático (≤ v4.17.0) deixou no localStorage, em vez de
+        // deixar a aplicação arrancar sem nenhum caminho de recuperação. Já não
+        // é escrita; só existe em instalações que ainda não carregaram v4.18.0.
         // Devolve true se o backup foi restaurado com sucesso.
         function tentarRestaurarDeBackupAutomatico(erroOriginal) {
-            const backupBruto = localStorage.getItem('kanban_backup');
+            const backupBruto = localStorage.getItem(STORAGE_BACKUP_LEGADO);
             if (!backupBruto) return false;
 
             let backup;
@@ -6161,7 +5903,7 @@
                 containerEl.appendChild(btn);
             });
 
-            console.log(`✅ Botões de origem renderizados para ${tipoCallback}:`, origensAtivas.length, 'origens');
+            debugLog(`✅ Botões de origem renderizados para ${tipoCallback}:`, origensAtivas.length, 'origens');
         }
 
         // Variáveis globais para filtro qualidade
@@ -6903,9 +6645,9 @@
         // DASHBOARD 2: GESTÃO
         // ==========================================
         function atualizarDashboardGestao() {
-            console.log('🔵 atualizarDashboardGestao() chamada');
-            console.log('   Total de registos:', registos.length);
-            console.log('   Origens ativas:', Array.from(gestaoOrigensAtivas));
+            debugLog('🔵 atualizarDashboardGestao() chamada');
+            debugLog('   Total de registos:', registos.length);
+            debugLog('   Origens ativas:', Array.from(gestaoOrigensAtivas));
             
             // FILTRO ENCADEADO: Origem → Data → Resultados
             
@@ -6920,7 +6662,7 @@
                 return gestaoOrigensAtivas.has(origemRegistro);
             });
             
-            console.log('   Após filtro origem:', registosFiltrados.length);
+            debugLog('   Após filtro origem:', registosFiltrados.length);
             
             // 2. FILTRO DE DATA (segundo filtro, aplicado aos resultados do filtro de origem)
             let periodoTexto;
@@ -6941,7 +6683,7 @@
                 if (labelKanbans) labelKanbans.textContent = 'Total de Kanbans';
             }
             
-            console.log('   Após filtro data:', registosFiltrados.length);
+            debugLog('   Após filtro data:', registosFiltrados.length);
 
             setInnerHTML('gestaoPeriodoInfo', `
                 <strong>${periodoTexto}</strong> | 
@@ -7069,8 +6811,8 @@
             */
             
             // Top 10 Artigos
-            console.log('📊 Processando Top 10 Artigos...');
-            console.log('   registosFiltrados.length:', registosFiltrados.length);
+            debugLog('📊 Processando Top 10 Artigos...');
+            debugLog('   registosFiltrados.length:', registosFiltrados.length);
             
             const artigosMap = {};
             registosFiltrados.forEach(r => {
@@ -7080,20 +6822,20 @@
                 artigosMap[key].kanbans += (r.qtdKanbans || 1);
             });
             
-            console.log('   artigosMap keys:', Object.keys(artigosMap).length);
+            debugLog('   artigosMap keys:', Object.keys(artigosMap).length);
             
             const topArtigos = Object.entries(artigosMap)
                 .sort((a, b) => b[1].count - a[1].count)
                 .slice(0, 10);
             
-            console.log('   topArtigos.length:', topArtigos.length);
+            debugLog('   topArtigos.length:', topArtigos.length);
             
             let htmlArtigos = '';
             if (topArtigos.length === 0) {
-                console.log('   ⚠️ Nenhum artigo encontrado');
+                debugLog('   ⚠️ Nenhum artigo encontrado');
                 htmlArtigos = '<p style="color: var(--text-muted); text-align: center; padding: var(--space-xl);">Sem dados para mostrar</p>';
             } else {
-                console.log('   ✅ Criando HTML para', topArtigos.length, 'artigos');
+                debugLog('   ✅ Criando HTML para', topArtigos.length, 'artigos');
                 htmlArtigos = '<div style="display: grid; gap: 0.5rem;">';
                 topArtigos.forEach(([artigo, data], idx) => {
                     const artigoShort = artigo.length > 50 ? artigo.substring(0, 47) + '...' : artigo;
@@ -7110,12 +6852,12 @@
                 htmlArtigos += '</div>';
             }
             
-            console.log('   📝 Tentando atualizar elemento gestaoTopArtigos');
+            debugLog('   📝 Tentando atualizar elemento gestaoTopArtigos');
             const elementoArtigos = document.getElementById('gestaoTopArtigos');
-            console.log('   Elemento existe?', !!elementoArtigos);
+            debugLog('   Elemento existe?', !!elementoArtigos);
             
             setInnerHTML('gestaoTopArtigos', htmlArtigos);
-            console.log('   ✅ Top 10 Artigos atualizado');
+            debugLog('   ✅ Top 10 Artigos atualizado');
             
             // Atualizar contadores de origem com registos filtrados
             atualizarContagemOrigens(registosFiltrados);
@@ -7542,7 +7284,7 @@
         }
 
         function atualizarInfoBackup() {
-            const backupTimestamp = localStorage.getItem('kanban_backup_timestamp');
+            const backupTimestamp = localStorage.getItem(STORAGE_BACKUP_TIMESTAMP);
             if (backupTimestamp) {
                 const data = new Date(backupTimestamp);
                 const dataFormatada = data.toLocaleString('pt-PT', {
@@ -7580,7 +7322,7 @@
             
             // Se os elementos não existem, apenas resetar para todos os registos
             if (!dataInicioEl && !dataFimEl && !servicoEl && !artigoEl && !armazemEl && !idTagEl && !origemEl) {
-                console.log('⚠️ Elementos de filtro não encontrados (removidos na v3.6.1)');
+                debugLog('⚠️ Elementos de filtro não encontrados (removidos na v3.6.1)');
                 registosFiltrados = [...registos];
                 atualizarEstatisticasFiltradas();
                 return;
@@ -7690,7 +7432,7 @@
             
             // Se elementos não existem, retornar
             if (!filteredTotal || !filteredKanbans || !filteredServicos || !filteredArtigos || !filteredArmazens) {
-                console.log('⚠️ Elementos de estatísticas filtradas não encontrados (removidos na v3.6.1)');
+                debugLog('⚠️ Elementos de estatísticas filtradas não encontrados (removidos na v3.6.1)');
                 return;
             }
             
@@ -7920,7 +7662,7 @@
          * Atualiza a tab Histórico com todos os registos (ou filtrados)
          */
         function atualizarHistorico() {
-            console.log('📋 Atualizando histórico...');
+            debugLog('📋 Atualizando histórico...');
 
             // Popular filtro de origem se ainda não foi
             popularFiltroOrigemHistorico();
@@ -8163,7 +7905,7 @@
                 btnGerar.style.opacity = '1';
             }
             
-            console.log('📅 Período mensal selecionado:', periodoMensalSelecionado);
+            debugLog('📅 Período mensal selecionado:', periodoMensalSelecionado);
         }
         
         function selecionarPeriodoAnual(tipo) {
@@ -8201,7 +7943,7 @@
                 btnGerar.style.opacity = '1';
             }
             
-            console.log('📅 Período anual selecionado:', periodoAnualSelecionado);
+            debugLog('📅 Período anual selecionado:', periodoAnualSelecionado);
         }
         
         function gerarBriefingMensal() {
@@ -8210,7 +7952,7 @@
                 return;
             }
             
-            console.log('📊 Gerando briefing mensal para:', periodoMensalSelecionado);
+            debugLog('📊 Gerando briefing mensal para:', periodoMensalSelecionado);
             exportarRelatorioPDF('mensal', periodoMensalSelecionado);
         }
         
@@ -8220,7 +7962,7 @@
                 return;
             }
             
-            console.log('📊 Gerando briefing anual para:', periodoAnualSelecionado);
+            debugLog('📊 Gerando briefing anual para:', periodoAnualSelecionado);
             exportarRelatorioPDF('anual', periodoAnualSelecionado);
         }
 
@@ -8230,8 +7972,8 @@
         
         async function exportarRelatorioPDF(tipo = 'mensal', periodoSelecionado = null) {
             try {
-                console.log(`📄 Iniciando exportação de relatório executivo ${tipo}...`);
-                console.log(`📊 Total de registos disponíveis: ${registos.length}`);
+                debugLog(`📄 Iniciando exportação de relatório executivo ${tipo}...`);
+                debugLog(`📊 Total de registos disponíveis: ${registos.length}`);
                 
                 if (registos.length === 0) {
                     mostrarAlerta(
@@ -8279,7 +8021,7 @@
                     
                     registosFiltrados = registos.filter(r => r.data >= dataInicio && r.data <= dataFim);
                     
-                    console.log(`📅 Período mensal: ${dataInicio} a ${dataFim} (${mesNome} ${ano})`);
+                    debugLog(`📅 Período mensal: ${dataInicio} a ${dataFim} (${mesNome} ${ano})`);
                 } else {
                     // Usar período selecionado se existir, senão usar ano atual
                     if (periodoSelecionado && periodoSelecionado.ano) {
@@ -8294,10 +8036,10 @@
                     
                     registosFiltrados = registos.filter(r => r.data >= dataInicio && r.data <= dataFim);
                     
-                    console.log(`📅 Período anual: ${dataInicio} a ${dataFim} (${ano})`);
+                    debugLog(`📅 Período anual: ${dataInicio} a ${dataFim} (${ano})`);
                 }
                 
-                console.log(`📊 Registos filtrados no período: ${registosFiltrados.length}`);
+                debugLog(`📊 Registos filtrados no período: ${registosFiltrados.length}`);
                 
                 if (registosFiltrados.length === 0) {
                     const periodoNome = tipo === 'mensal' ? `${mesNome} de ${ano}` : `ano ${ano}`;
@@ -8312,7 +8054,7 @@
                     return;
                 }
                 
-                console.log(`📊 ${registosFiltrados.length} registos encontrados - iniciando geração PDF...`);
+                debugLog(`📊 ${registosFiltrados.length} registos encontrados - iniciando geração PDF...`);
                 
                 // Mostrar mensagem de progresso
                 mostrarAlerta('⏳ A gerar relatório executivo PDF... Aguarde...', 'info');
@@ -8328,7 +8070,7 @@
                     return;
                 }
 
-                console.log('✅ Biblioteca jsPDF carregada');
+                debugLog('✅ Biblioteca jsPDF carregada');
                 
                 // Criar PDF
                 const { jsPDF } = window.jspdf;
@@ -8346,7 +8088,7 @@
                     creator: 'Kanban KPI Analyzer'
                 });
                 
-                console.log('✅ Documento PDF criado');
+                debugLog('✅ Documento PDF criado');
                 
                 const cfg = {
                     margemEsq: 15,
@@ -8969,11 +8711,11 @@
                 const tipoCapital = tipo.charAt(0).toUpperCase() + tipo.slice(1);
                 const filename = `Resumo_Executivo_${tipoCapital}_${timestamp}.pdf`;
                 
-                console.log(`💾 Salvando PDF: ${filename}`);
+                debugLog(`💾 Salvando PDF: ${filename}`);
                 doc.save(filename);
-                console.log(`✅ PDF salvo com sucesso!`);
+                debugLog(`✅ PDF salvo com sucesso!`);
                 
-                console.log(`✅ Relatório executivo PDF gerado: ${filename}`);
+                debugLog(`✅ Relatório executivo PDF gerado: ${filename}`);
                 mostrarAlerta(
                     `✅ Resumo executivo gerado com sucesso!<br><br>` +
                     `<strong>📄 Ficheiro:</strong> ${filename}<br>` +
@@ -9224,156 +8966,22 @@
                 if (avisoNovaVersaoVisivel || !banner) return;
                 avisoNovaVersaoVisivel = true;
                 banner.classList.remove('hidden');
-                console.log('🔄 Nova versão ativa no Service Worker — recarregar para a usar');
+                debugLog('🔄 Nova versão ativa no Service Worker — recarregar para a usar');
             });
 
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js')
-                    .then((reg) => console.log('✅ Service Worker registado:', reg.scope))
+                    .then((reg) => debugLog('✅ Service Worker registado:', reg.scope))
                     .catch((err) => console.warn('⚠️ Service Worker não registado:', err.message));
             });
         }
 
 
         /* =====================================================
-         * KANBAN KPI ANALYZER v4.11.3
-         * =====================================================
-         * 
-         * 📅 Data: 03 de Agosto de 2026
-         * 🎨 Design: Medical Brutalist - Profissional e Distinto
-         * 🔒 Segurança: XSS Protection com escapeHTML()
+         * KANBAN KPI ANALYZER — histórico de versões em versao.md
          *
-         * CHANGELOG v4.11.3 (Identidade visual):
-         * - 🎨 Ícones substituídos pelo logótipo Kkpi (4 variantes)
-         * - 🔗 favicon + apple-touch-icon (a app não tinha nenhum)
-         *
-         * CHANGELOG v4.11.2 (Revisão: PWA reparada + integridade de dados):
-         * - 🚑 PWA: app shell do SW apontava para o ficheiro versionado e para
-         *   ./icons/ (inexistente) — cache.addAll falhava e o SW nunca chegava
-         *   a instalar; corrigido para ./index.html + ícones da raiz
-         * - 🚑 manifest.json: caminhos dos ícones + variantes maskable
-         * - 🧭 SW: fallback de navegação offline e cache restrito a
-         *   same-origin + CDN conhecidas
-         * - 🛡️ Submissão exige serviço e artigo existentes nas referências
-         *   (o campo Armazém é readonly, logo isento da validação nativa)
-         * - 🐛 encontrarServico/encontrarArtigo/encontrarErro: comparação por
-         *   string (IDs e códigos numéricos do Excel) e código de artigo
-         *   aceite sem zeros à esquerda, gravado na forma canónica
-         * - 🐛 Gravar uma edição já não mostra "Edição cancelada" por cima
-         *   da mensagem de sucesso
-         * - 🐛 ESTADO_CODIGO tolerante ao tipo/caixa (como isValorAtivo)
-         * - 🐛 "Limpar referências" limpa também utilizadores e erros
-         * - 🔒 limparTodosDados apaga apenas as chaves da app
-         * - 🔒 gerarUUID usa crypto.randomUUID quando disponível
-         * - 💬 Mensagens claras para quota esgotada e CDN indisponível
-         * - 🧹 atualizarTabela() removida (código morto desde a v3.6.1)
-         *
-         * CHANGELOG v4.11.1 (Correções de segurança — auditoria):
-         * - 🔒 SRI (sha384) + crossorigin="anonymous" nos scripts CDN
-         *   (xlsx 0.18.5, jsPDF 2.5.1, autotable 3.5.31)
-         * - 🔒 mostrarAlerta e mostrarAlertaReferencia escapam a mensagem
-         *   com escapeHTML antes de innerHTML (<br> e \n preservados)
-         * - 🔒 escapeHTML aplicado a origem.Nome nos botões de filtro
-         *   de origem e à lista de origens do infoText
-         *
-         * CHANGELOG v4.11.0 (PWA estável):
-         * - index.html estável como app shell (start_url independente da versão)
-         * - SW: fallback de navegação offline + cache restrito a origens conhecidas
-         * - console.log de arranque dinâmico via APP_VERSION
-         *
-         * CHANGELOG v4.10.0 (Progressive Web App):
-         * - 📱 Adicionados manifest.json, sw.js e /icons na raiz do repo
-         * - 🔌 Service Worker regista cache-first do app shell e das
-         *   bibliotecas CDN — app instalável e utilizável offline
-         *   após a primeira visita online
-         * - ⚠️ Requer HTTPS/localhost (GitHub Pages cumpre este requisito)
-         * 
-         * CHANGELOG v4.9.13 (Limite de 40 dias — Atividade por Dia):
-         * - 📅 Gráfico "Atividade por Dia" (dashboard Operacional) passa a
-         *   mostrar apenas os últimos 40 dias com registos (diasOrdenados
-         *   com .slice(-40) após ordenação ascendente) — evita colunas
-         *   demasiado finas/ilegíveis com períodos filtrados longos
-         * 
-         * CHANGELOG v4.9.12 (Refactor: filtros rápidos unificados):
-         * - 🧹 Extraída calcularIntervaloDataRapido(tipo) — lógica de
-         *   datas (hoje/semana/mês/ano) antes triplicada em
-         *   filtroRapido()/filtroRapidoGestao()/filtroRapidoQualidade()
-         * - As 3 funções passam a wrappers finos; sem alteração de
-         *   comportamento, apenas manutenção (um único ponto para
-         *   corrigir bugs de cálculo de datas). −55 linhas
-         * 
-         * CHANGELOG v4.9.11 (Cores de origem dinâmicas):
-         * - 🎨 Fix: CORES_ORIGEM tinha roxo duplicado nos índices 0 e 4 —
-         *   substituído por rosa (#EC4899) na 5ª posição da paleta
-         * - 🎨 Fix: badges de origem (tabela, histórico, modal de detalhe)
-         *   e "Distribuição por Origem" deixaram de estar hardcoded para
-         *   Armazém/Externo A/Externo B — obterCorOrigem() deriva a cor da posição
-         *   real da origem em tOrigem, reaproveitando CORES_ORIGEM
-         * - 🧹 getBadgeClass() removida
-         * 
-         * CHANGELOG v4.9.10 (Consistência de filtros e duplicados):
-         * - 🐛 Fix: dashboard Qualidade com Set de origens vazio mostrava
-         *   todos os registos em vez de 0 — comportamento agora igual ao
-         *   dashboard Gestão (nenhuma origem selecionada = 0 resultados)
-         * - 🐛 Fix: validarDuplicados() passou a comparar também origem e
-         *   tipoErro, evitando falsos positivos entre registos legítimos
-         * - 🧹 Removida restaurarBackup() (código morto, sem chamadas)
-         * 
-         * CHANGELOG v4.9.9 (Fixes de segurança e robustez):
-         * - 🔒 Fix XSS: escapeHTML() em gestaoTopServicos, gestaoTopArtigos,
-         *   gestaoDistribuicaoOrigem, qualAnaliseErros (círculo + Top 5) e
-         *   Análise KB Perdido/RFID — texto vindo de T_Artigo/T_Serviços/
-         *   T_Erros/T_Origem ou de importação Excel podia injetar HTML/JS
-         * - 🔒 Fix: onclick dos segmentos do gráfico de erros deixou de
-         *   interpolar código/descrição/cor como string no atributo —
-         *   passa a usar lookup por índice em window._qualErrosComPercentagem
-         * - 🐛 Fix: nova função isValorAtivo() substitui comparação rígida
-         *   `=== true` nos filtros de T_Serviços/T_Utilizadores/T_Erros/
-         *   T_Origem — aceita booleano, "VERDADEIRO"/"TRUE"/"1"/"SIM" (texto)
-         *   ou número 1, evitando que a tabela carregue 0 linhas silenciosamente
-         * 
-         * CHANGELOG v4.9.8 (Fix Utilizador undefined):
-         * - 🐛 Fix: campo Utilizador mostrava "(undefined)" porque u.Email não existe
-         *   na nova estrutura T_Utilizadores (só tem UUID_UTILIZADOR, DESCRICAO_UTILIZADOR)
-         * - Dropdown e hint mostram apenas o Nome do utilizador
-         *
-         * CHANGELOG v4.9.2 (Fix Histórico):
-         * - 🐛 Fix: Histórico não fechava ao navegar para Dashboards/Relatórios
-         * 
-         * CHANGELOG v4.9.1 (Backup Semanal):
-         * - 📅 Modal de backup semanal persistente (overlay bloqueante)
-         * - 🔒 Modal só fecha após backup concluído com sucesso
-         * - ⚙️ Dia configurável via BACKUP_DIA_SEMANA (padrão: Sexta)
-         * - 💾 Usa criarObjetoBackup() e File System Access API existentes
-         * - ↩️ Fallback automático para download direto (Downloads)
-         * 
-         * CHANGELOG v4.9 (Limpeza de Código):
-         * - 🧹 Removidas ~860 linhas de código morto (funções órfãs)
-         * - 🔒 Fix: htmlTags declarada com const (era variável global implícita)
-         * - 🔧 Fix: mudarOpTab duplicada removida do <head>
-         * - 📋 Fix: comentários HTML duplicados removidos do opBatch
-         * - 📝 Fix: discrepância v4.8.1 no changelog corrigida
-         * - 🔄 Fix: window.mudarTabPrincipal redundante removido
-         * 
-         * CHANGELOG v4.8:
-         * - ✅ Versão única em APP_VERSION; CSS/header/changelog alinhados
-         * - ✅ Eliminação aceita UUID e ID legado de forma consistente
-         * - ✅ Filtros de origem e contadores usam tOrigem dinamicamente
-         * - ✅ Backup automático e exportação JSON partilham o mesmo esquema
-         * - 🔒 escapeHTML() aplicado em todas as renderizações de tabelas
-         * 
-         * CHANGELOG v4.7.6:
-         * - 🖱️ Modal de detalhes ao clicar em qualquer barra dos gráficos operacionais
-         * - ✅ Funciona em todos os gráficos: Hora, Dia Semana, Dia, Mês
-         * - 📋 Modal mostra registos filtrados com estatísticas rápidas
-         * - ⌨️ Fecha com X, ESC ou clique fora do modal
-
-         * 
          * Desenvolvido para: Equipa de Manutenção
          * Contacto: Joaquim Camelo - tlm: 2511
-         * 
-         * "A simplicidade é o mais alto grau de sofisticação."
-         * - Leonardo da Vinci
          * ===================================================== */
     </script>
 </body>

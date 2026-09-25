@@ -31,7 +31,7 @@ jobs:
 
       # Falha se a versão da app divergir entre version.js (fonte única) e
       # os sítios que não podem ser derivados automaticamente (cabeçalho
-      # CSS e changelog em index.html) — ver v4.15.1
+      # CSS em index.html e topo do changelog em versao.md) — ver v4.15.1
       - name: Check version sync
         run: node scripts/check-version-sync.js
 

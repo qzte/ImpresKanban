@@ -4,6 +4,21 @@
 
 ---
 
+## v4.18.0 — 25 Set 2026
+
+### 💾 Armazenamento mais leve e seguro + pesquisas mais rápidas
+
+Primeiro lote da revisão de custo/benefício: menos risco de esgotar a quota do `localStorage` e de perder dados, sem alterações à interface.
+
+- **Removido o "backup automático" no `localStorage`:** a cada 5 minutos, ao mudar de separador e ao fechar a janela, a app gravava uma cópia completa dos registos e referências (`kanban_backup`) no próprio `localStorage`. Isso gastava cerca de **metade da quota** (~5MB) só com a cópia. Também não protegia do cenário real de perda: quando o browser apaga os dados do site, apaga a cópia junto. Cada alteração já é gravada no momento por `salvarDados()`/`salvarReferencias()`, com reversão em caso de falha. A cópia antiga é apagada assim que os dados principais carregam sem erro; se estiverem corrompidos, continua a ser oferecida para recuperação, como antes
+- **Novo:** `navigator.storage.persist()` no arranque — pede ao browser para não apagar os dados da app quando falta espaço em disco (numa PWA instalada costuma ser aceite sem perguntar)
+- **Alterado:** o indicador da tab 💾 Gestão dos Dados e o "Último backup" passam a refletir o último **backup JSON exportado para ficheiro** (manual ou semanal). Antes estavam sempre verdes por causa da cópia interna, mesmo sem nenhum backup real. O indicador fica amarelo quando o último backup em ficheiro tem mais de 7 dias, o mesmo ritmo do lembrete semanal
+- **Performance:** `encontrarServico`, `encontrarArtigo` e `encontrarErro` passam a usar um índice (`Map`) em cache em vez de percorrer a tabela com `.find()`. O Histórico chama `encontrarErro` por linha e a T_Artigo pode ter milhares de entradas. Novos testes garantem que o índice acompanha a substituição das tabelas e mantém a semântica de "primeira ocorrência"
+- **Limpeza:** o histórico de versões duplicado dentro do `index.html` (≈400 linhas de comentários, ~24KB enviados em cada visita) foi removido — a fonte é este ficheiro. O CI (`check-version-sync.js`) passa a validar a versão do topo de `versao.md`
+- **Limpeza:** os ~110 `console.log` de diagnóstico só aparecem com o modo debug ligado (`localStorage.setItem('kanban_debug', '1')` e recarregar). `console.warn`/`console.error` mantêm-se sempre ativos
+
+---
+
 ## v4.17.0 — 25 Set 2026
 
 ### ⚡ Revisão de código: performance, testes e robustez
