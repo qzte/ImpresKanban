@@ -75,7 +75,7 @@
     </script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.22.0 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.23.0 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
 
            Histórico de versões: versao.md (o changelog que estava aqui
@@ -2810,12 +2810,12 @@
             return `${ano}-W${String(num).padStart(2, '0')}`;
         }
 
-        function verificarBackupSemanal() {
+        async function verificarBackupSemanal() {
             const hoje = new Date();
             if (hoje.getDay() !== BACKUP_DIA_SEMANA) return; // Não é o dia configurado
 
             const semanaAtual = obterChaveSemana(hoje);
-            const semanaGuardada = storageGet(STORAGE_BACKUP_SEMANAL);
+            const semanaGuardada = await storageGet(STORAGE_BACKUP_SEMANAL);
 
             if (semanaGuardada === semanaAtual) return; // Backup já feito esta semana
 
@@ -2844,7 +2844,7 @@
 
             try {
                 const timestamp = new Date().toISOString();
-                const backup = criarObjetoBackup(timestamp);
+                const backup = await criarObjetoBackup(timestamp);
                 const dataStr = JSON.stringify(backup);
                 const dataBackup = timestamp.split('T')[0].replace(/-/g, '');
                 const fileName = `Kanban_Backup_Semanal_${dataBackup}.json`;
@@ -2893,7 +2893,7 @@
                 const semanaAtual = obterChaveSemana(new Date());
                 storageSet(STORAGE_BACKUP_SEMANAL, semanaAtual);
                 storageSet('kanban_backup_semanal_timestamp', timestamp);
-                registarBackupFicheiro(timestamp);
+                await registarBackupFicheiro(timestamp);
 
                 const modal = document.getElementById('modalBackupSemanal');
                 if (modal) modal.classList.add('hidden');
@@ -2906,7 +2906,7 @@
                     'success'
                 );
 
-                atualizarIndicadorTabGestao();
+                await atualizarIndicadorTabGestao();
 
             } catch (error) {
                 console.error('Erro no backup semanal:', error);
@@ -2991,30 +2991,78 @@
         ];
 
         // ==========================================
-        // WRAPPER DE localStorage
+        // MOTOR DE ARMAZENAMENTO: IndexedDB (v4.23.0)
         // ==========================================
-        // localStorage pode falhar por mais motivos do que quota esgotada:
-        // modo privado nalguns browsers, política do dispositivo a bloquear
-        // storage, acesso restrito num iframe, etc. Antes desta wrapper
-        // várias funções chamavam getItem/setItem/removeItem diretamente,
-        // sem try/catch, a assumir que nunca falhava — uma exceção não
-        // apanhada a meio de atualizarInterface() ou do arranque
-        // (DOMContentLoaded) partia a app inteira por uma leitura de
-        // diagnóstico sem importância (ex.: atualizarInfoBackup()).
+        // Substitui o localStorage como motor principal: sem o limite
+        // prático de ~5-10MB (a T_Artigo e o histórico de registos podiam
+        // aproximar-se disso), e a leitura/escrita deixa de bloquear a
+        // thread principal a serializar arrays grandes. A API pública
+        // (storageGet/storageSet/storageRemove/storageGetJSON/
+        // storageSetJSON) mantém a mesma forma da wrapper de localStorage
+        // (v4.21.0) — só passa a devolver Promises; quem já chamava sem
+        // try/catch só precisa de acrescentar `await`. Os valores
+        // guardados continuam a ser texto (JSON.stringify por fora, tal
+        // como antes) em vez de objetos nativos do IndexedDB — mantém a
+        // migração e o motor de fallback simples e idênticos em ambos os
+        // lados.
         //
-        // Os helpers abaixo nunca lançam: devolvem um valor neutro
-        // (null/false) e registam um aviso na consola. Quem precisa de
-        // reagir ao erro em concreto (salvarDados() avisando de quota
-        // esgotada) recebe informação suficiente sem repetir o try/catch.
+        // Nunca lança: um IndexedDB indisponível (raro, mas acontece nalguns
+        // webviews/iframes restritos) cai para o localStorage, com o mesmo
+        // try/catch que a wrapper anterior já tinha. Quota esgotada é
+        // sinalizada, não escondida — sinalizar e cair para localStorage ao
+        // mesmo tempo não ajudava: os dois motores partilham a mesma quota
+        // de origem na generalidade dos browsers atuais.
 
-        /**
-         * Lê uma chave do localStorage. Nunca lança.
-         * @param {string} chave
-         * @returns {string|null} valor lido; null se a chave não existe OU
-         *   se a leitura falhou (indistinguível de propósito — em ambos os
-         *   casos quem chama trata como "não há valor guardado")
-         */
-        function storageGet(chave) {
+        const IDB_NOME = 'kanban_kpi_db';
+        const IDB_VERSAO = 1;
+        const IDB_OBJECT_STORE = 'kv';
+
+        let _idbPromise = null;
+
+        function abrirIndexedDB() {
+            if (!('indexedDB' in window)) return Promise.reject(new Error('IndexedDB indisponível'));
+            if (_idbPromise) return _idbPromise;
+            _idbPromise = new Promise((resolve, reject) => {
+                let req;
+                try {
+                    req = indexedDB.open(IDB_NOME, IDB_VERSAO);
+                } catch (e) {
+                    reject(e);
+                    return;
+                }
+                req.onupgradeneeded = () => {
+                    if (!req.result.objectStoreNames.contains(IDB_OBJECT_STORE)) {
+                        req.result.createObjectStore(IDB_OBJECT_STORE);
+                    }
+                };
+                req.onsuccess = () => {
+                    const db = req.result;
+                    // Outra aba a fazer upgrade (versão nova instalada) pode
+                    // fechar esta ligação sem aviso — reabrir na próxima
+                    // chamada em vez de ficar presa a uma ligação morta
+                    db.onclose = () => { _idbPromise = null; };
+                    resolve(db);
+                };
+                req.onerror = () => { _idbPromise = null; reject(req.error); };
+            });
+            return _idbPromise;
+        }
+
+        function idbObjectStore(modo) {
+            return abrirIndexedDB().then(db => db.transaction(IDB_OBJECT_STORE, modo).objectStore(IDB_OBJECT_STORE));
+        }
+
+        function idbRequestParaPromise(req) {
+            return new Promise((resolve, reject) => {
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        // Implementação de fallback sobre localStorage — idêntica à wrapper
+        // única que existiu entre v4.21.0 e v4.22.0, mantida como último
+        // recurso para quando o IndexedDB não está disponível.
+        function _storageGetLS(chave) {
             try {
                 return localStorage.getItem(chave);
             } catch (e) {
@@ -3022,41 +3070,81 @@
                 return null;
             }
         }
-
-        /**
-         * Escreve uma chave no localStorage. Nunca lança.
-         * @param {string} chave
-         * @param {string} valor
-         * @returns {{ok: boolean, quotaExcedida: boolean, erro: (Error|null)}}
-         */
-        function storageSet(chave, valor) {
+        function _storageSetLS(chave, valor) {
             try {
                 localStorage.setItem(chave, valor);
                 return { ok: true, quotaExcedida: false, erro: null };
             } catch (e) {
-                // Espaço esgotado é o erro realista neste uso — sinalizado à
-                // parte para quem chama poder mostrar uma mensagem
-                // acionável em vez do texto técnico do browser (v4.11.2)
                 const quotaExcedida = !!e && (e.name === 'QuotaExceededError' ||
                     e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22);
                 console.warn(`⚠️ Falha ao gravar "${chave}" no localStorage:`, e);
                 return { ok: false, quotaExcedida, erro: e };
             }
         }
-
-        /**
-         * Remove uma chave do localStorage. Nunca lança.
-         * @param {string} chave
-         * @returns {boolean} true se removida (ou já não existia); false se
-         *   a remoção falhou
-         */
-        function storageRemove(chave) {
+        function _storageRemoveLS(chave) {
             try {
                 localStorage.removeItem(chave);
                 return true;
             } catch (e) {
                 console.warn(`⚠️ Falha ao remover "${chave}" do localStorage:`, e);
                 return false;
+            }
+        }
+
+        /**
+         * Lê uma chave. Nunca lança.
+         * @param {string} chave
+         * @returns {Promise<string|null>} valor lido; null se a chave não
+         *   existe OU se a leitura falhou (indistinguível de propósito —
+         *   em ambos os casos quem chama trata como "não há valor guardado")
+         */
+        async function storageGet(chave) {
+            try {
+                const store = await idbObjectStore('readonly');
+                const valor = await idbRequestParaPromise(store.get(chave));
+                return valor === undefined ? null : valor;
+            } catch (e) {
+                return _storageGetLS(chave);
+            }
+        }
+
+        /**
+         * Escreve uma chave. Nunca lança.
+         * @param {string} chave
+         * @param {string} valor
+         * @returns {Promise<{ok: boolean, quotaExcedida: boolean, erro: (Error|null)}>}
+         */
+        async function storageSet(chave, valor) {
+            try {
+                const store = await idbObjectStore('readwrite');
+                await idbRequestParaPromise(store.put(valor, chave));
+                return { ok: true, quotaExcedida: false, erro: null };
+            } catch (e) {
+                // Espaço esgotado é sinalizado à parte para quem chama poder
+                // mostrar uma mensagem acionável (v4.11.2) — não cai para
+                // localStorage, que partilha a mesma quota de origem
+                const quotaExcedida = !!e && (e.name === 'QuotaExceededError' || e.code === 22);
+                if (quotaExcedida) {
+                    console.warn(`⚠️ Quota esgotada ao gravar "${chave}":`, e);
+                    return { ok: false, quotaExcedida: true, erro: e };
+                }
+                return _storageSetLS(chave, valor);
+            }
+        }
+
+        /**
+         * Remove uma chave. Nunca lança.
+         * @param {string} chave
+         * @returns {Promise<boolean>} true se removida (ou já não existia);
+         *   false se a remoção falhou
+         */
+        async function storageRemove(chave) {
+            try {
+                const store = await idbObjectStore('readwrite');
+                await idbRequestParaPromise(store.delete(chave));
+                return true;
+            } catch (e) {
+                return _storageRemoveLS(chave);
             }
         }
 
@@ -3072,20 +3160,20 @@
          *   interrompida por quota deixa por vezes um objeto/string em vez
          *   do array esperado, e isso já causou arranques com a app num
          *   estado inválido (v4.11.2)
-         * @returns {*}
+         * @returns {Promise<*>}
          */
-        function storageGetJSON(chave, valorPadrao = null, validar = null) {
-            const bruto = storageGet(chave);
+        async function storageGetJSON(chave, valorPadrao = null, validar = null) {
+            const bruto = await storageGet(chave);
             if (bruto === null) return valorPadrao;
             let valor;
             try {
                 valor = JSON.parse(bruto);
             } catch (e) {
-                console.warn(`⚠️ "${chave}" no localStorage não é JSON válido — a usar o valor por omissão:`, e);
+                console.warn(`⚠️ "${chave}" não é JSON válido — a usar o valor por omissão:`, e);
                 return valorPadrao;
             }
             if (validar && !validar(valor)) {
-                console.warn(`⚠️ "${chave}" no localStorage não tem a forma esperada — a usar o valor por omissão.`);
+                console.warn(`⚠️ "${chave}" não tem a forma esperada — a usar o valor por omissão.`);
                 return valorPadrao;
             }
             return valor;
@@ -3095,10 +3183,45 @@
          * JSON.stringify + storageSet() numa só chamada.
          * @param {string} chave
          * @param {*} valor
-         * @returns {{ok: boolean, quotaExcedida: boolean, erro: (Error|null)}}
+         * @returns {Promise<{ok: boolean, quotaExcedida: boolean, erro: (Error|null)}>}
          */
         function storageSetJSON(chave, valor) {
             return storageSet(chave, JSON.stringify(valor));
+        }
+
+        // Chave de controlo da migração — não é copiada para o IndexedDB,
+        // fica sempre em localStorage (também não entra em CHAVES_STORAGE_APP
+        // por isso: um "Limpar Tudo" não deve reabrir a porta a remigrar
+        // dados que acabaram de ser apagados de propósito)
+        const STORAGE_MIGRADO_IDB = 'kanban_migrado_idb_v1';
+
+        /**
+         * Copia, uma única vez, os dados que ficaram em localStorage
+         * (≤ v4.22.0) para o IndexedDB, e limpa essas chaves do
+         * localStorage depois de confirmar a cópia. Sem isto, uma
+         * instalação existente "perdia" os dados no primeiro arranque
+         * desta versão — o resto da app passa a ler só do IndexedDB.
+         * Corre a cada arranque, mas o marcador faz-a devolver de imediato
+         * depois da primeira vez.
+         */
+        async function migrarLocalStorageParaIndexedDB() {
+            if (_storageGetLS(STORAGE_MIGRADO_IDB) === '1') return;
+
+            let algumaFalha = false;
+            for (const chave of CHAVES_STORAGE_APP) {
+                const valorAntigo = _storageGetLS(chave);
+                if (valorAntigo === null) continue; // nada a migrar nesta chave
+                const resultado = await storageSet(chave, valorAntigo);
+                if (resultado.ok) {
+                    _storageRemoveLS(chave); // liberta espaço no localStorage
+                } else {
+                    algumaFalha = true;
+                    console.warn(`⚠️ Falha ao migrar "${chave}" para IndexedDB — mantida em localStorage.`);
+                }
+            }
+            if (!algumaFalha) {
+                _storageSetLS(STORAGE_MIGRADO_IDB, '1');
+            }
         }
 
         // ==========================================
@@ -3293,7 +3416,7 @@
             }
         }
         
-        window.processarBatch = function() {
+        window.processarBatch = async function() {
             debugLog('📦 Processando batch...');
             
             // Validar campos comuns
@@ -3412,7 +3535,7 @@
             debugLog('📊 Resultado final:', { registosAdicionados, erros, totalRegistos: registos.length });
             
             if (registosAdicionados > 0) {
-                if (salvarDados()) {
+                if (await salvarDados()) {
                     let mensagem = `✅ Batch processado com sucesso! ${registosAdicionados} artigo(s) adicionado(s).`;
                     if (erros > 0) {
                         mensagem += `\n\n⚠️ ${erros} artigo(s) ignorado(s):\n${errosDetalhados.join('\n')}`;
@@ -3425,7 +3548,7 @@
                     // para não ficarem "adicionados" sem terem sido persistidos
                     registos.splice(registos.length - registosAdicionados, registosAdicionados);
                 }
-                atualizarInterface();
+                await atualizarInterface();
             } else {
                 let mensagem = `❌ Nenhum artigo foi adicionado.`;
                 if (errosDetalhados.length > 0) {
@@ -3659,7 +3782,7 @@
             }
         }
 
-        window.processarBatchServicos = function() {
+        window.processarBatchServicos = async function() {
             debugLog('🏥 Processando batch por serviços...');
             
             const data = document.getElementById('batchSvcData').value;
@@ -3757,7 +3880,7 @@
             });
             
             if (registosAdicionados > 0) {
-                if (salvarDados()) {
+                if (await salvarDados()) {
                     let mensagem = `✅ Batch processado com sucesso! ${registosAdicionados} serviço(s) registado(s) para o artigo ${artigo}.`;
                     if (erros > 0) {
                         mensagem += `\n\n⚠️ ${erros} linha(s) ignorada(s):\n${errosDetalhados.join('\n')}`;
@@ -3769,7 +3892,7 @@
                     // para não ficarem "adicionados" sem terem sido persistidos
                     registos.splice(registos.length - registosAdicionados, registosAdicionados);
                 }
-                atualizarInterface();
+                await atualizarInterface();
             } else {
                 mostrarAlerta(`❌ Nenhum registo foi adicionado.\n\nErros:\n${errosDetalhados.join('\n')}`, 'error');
             }
@@ -3796,9 +3919,9 @@
         };
 
         // Função para mostrar citação aleatória
-        function mostrarCitacao() {
+        async function mostrarCitacao() {
             // Obter índice salvo ou gerar novo
-            let index = storageGet(STORAGE_CITACAO_INDEX);
+            let index = await storageGet(STORAGE_CITACAO_INDEX);
             
             if (index === null) {
                 // Primeira vez - escolher aleatório
@@ -3817,13 +3940,13 @@
         }
 
         // Inicialização
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             // ATUALIZAR VERSÃO NO HEADER
             const versionSpan = document.getElementById('appVersionDisplay');
             if (versionSpan) {
                 versionSpan.textContent = `v${APP_VERSION} 🎯`;
             }
-            
+
             // VERIFICAÇÃO INICIAL: Garantir que apenas a tab Registos está visível
             debugLog('🔵 Inicializando aplicação...');
             debugLog('📦 Versão:', APP_VERSION);
@@ -3834,27 +3957,35 @@
                 }
             });
             debugLog('  ✅ Tab Registos visível, outras ocultas');
-            
+
             // Mostrar citação inspiradora
-            mostrarCitacao();
-            
+            await mostrarCitacao();
+
             // Definir data atual
             document.getElementById('data').valueAsDate = new Date();
-            
-            // Carregar dados do localStorage
-            carregarDados();
-            carregarReferencias();
-            
+
+            // Migrar dados de instalações ≤ v4.22.0 do localStorage para o
+            // IndexedDB (v4.23.0) ANTES de os carregar — sem isto, uma
+            // instalação existente arrancava sem dados no primeiro arranque
+            // desta versão (o resto da app passa a ler só do IndexedDB)
+            await migrarLocalStorageParaIndexedDB();
+
+            // Carregar dados — por esta ordem: carregarReferencias() popula
+            // tArtigo/tServicos, de que popularUtilizadores() e
+            // atualizarIndicadorTabGestao() (abaixo) dependem
+            await carregarDados();
+            await carregarReferencias();
+
             // Verificar se é dia de backup semanal (v4.9.1)
             // Pequeno delay para garantir que registos já estão carregados
             setTimeout(verificarBackupSemanal, 1500);
-            
+
             // Atualizar indicador visual da tab Gestão
-            atualizarIndicadorTabGestao();
-            
+            await atualizarIndicadorTabGestao();
+
             // Popular utilizadores (mesmo que vazio, configura o campo)
             popularUtilizadores();
-            
+
             // Configurar event listeners para filtros
             setupFiltros();
             
@@ -3878,22 +4009,28 @@
             pedirArmazenamentoPersistente();
             
             // Atualizar indicador visual da tab Gestão de Dados
-            atualizarIndicadorTabGestao();
+            await atualizarIndicadorTabGestao();
 
             // Garantir estado inicial correcto: Identificação visível, Batch e Histórico ocultos
             // (fix v4.9.7: evita que o Histórico apareça como tab activa no arranque)
             mudarOpTab('identificacao');
-            
+
+            // Sinal de que a inicialização assíncrona terminou (migração +
+            // carregarDados + carregarReferencias) — usado pelos testes de
+            // interface para esperar pelos dados em vez de "registos existe"
+            // (v4.23.0: passou a existir desde o parse do script, já não
+            // garante que os dados carregaram)
+            window.__appPronta = true;
         });
 
         // Sistema de Backup (objeto partilhado pela exportação manual e semanal)
-        function criarObjetoBackup(timestamp = new Date().toISOString(), opcoes = {}) {
+        async function criarObjetoBackup(timestamp = new Date().toISOString(), opcoes = {}) {
             const { incluirReferencias = true } = opcoes;
             const backup = {
                 versao: APP_VERSION,
                 dataBackup: timestamp,
                 registos: registos,
-                citacaoIndex: storageGet(STORAGE_CITACAO_INDEX),
+                citacaoIndex: await storageGet(STORAGE_CITACAO_INDEX),
                 totalRegistos: registos.length,
                 totalKanbans: registos.reduce((sum, r) => sum + (r.qtdKanbans || 1), 0)
             };
@@ -3918,10 +4055,10 @@
         // cada alteração já é gravada de imediato por salvarDados()/
         // salvarReferencias(), com reversão em caso de falha. O backup que
         // conta é o ficheiro JSON exportado; esta função regista quando foi.
-        function registarBackupFicheiro(timestamp) {
-            storageSet(STORAGE_BACKUP_TIMESTAMP, timestamp);
-            atualizarIndicadorTabGestao();
-            atualizarInfoBackup();
+        async function registarBackupFicheiro(timestamp) {
+            await storageSet(STORAGE_BACKUP_TIMESTAMP, timestamp);
+            await atualizarIndicadorTabGestao();
+            await atualizarInfoBackup();
         }
 
         // Pede ao browser para não apagar os dados desta origem quando falta
@@ -3946,7 +4083,7 @@
                 const timestamp = new Date().toISOString();
                 
                 // Criar backup JSON com o mesmo esquema usado pelo backup semanal
-                const backupRegistos = criarObjetoBackup(timestamp);
+                const backupRegistos = await criarObjetoBackup(timestamp);
                 
                 const dataBackup = new Date().toISOString().split('T')[0];
                 const fileName = `Kanban_Backup_${dataBackup}.json`;
@@ -3970,7 +4107,7 @@
                         const writable = await handle.createWritable();
                         await writable.write(dataStr);
                         await writable.close();
-                        registarBackupFicheiro(timestamp);
+                        await registarBackupFicheiro(timestamp);
                         
                         mostrarAlerta(
                             `✅ Backup JSON guardado com sucesso!<br><br>` +
@@ -4008,7 +4145,7 @@
                     document.body.removeChild(link);
                     URL.revokeObjectURL(url);
                 }, 100);
-                registarBackupFicheiro(timestamp);
+                await registarBackupFicheiro(timestamp);
                 
                 mostrarAlerta(
                     `✅ Backup JSON iniciado!<br><br>` +
@@ -4028,7 +4165,7 @@
         // ==========================================
         // LIMPAR TODOS OS DADOS
         // ==========================================
-        function limparTodosDados() {
+        async function limparTodosDados() {
             if (!confirm('⚠️ ATENÇÃO!\n\nDeseja realmente LIMPAR TODOS OS DADOS?\n\nEsta ação é IRREVERSÍVEL!\n\nRecomendamos fazer um backup antes de continuar.')) return;
             if (!confirm('CONFIRMAÇÃO FINAL\n\nTem certeza absoluta?\n\nTodos os dados serão permanentemente apagados!')) return;
             try {
@@ -4036,8 +4173,8 @@
                 // Remover apenas as chaves desta aplicação. localStorage.clear()
                 // apagava também dados de outras páginas alojadas na mesma
                 // origem (ex.: outros projetos no mesmo GitHub Pages) — v4.11.2
-                CHAVES_STORAGE_APP.forEach(chave => storageRemove(chave));
-                atualizarInterface(); atualizarInterfaceReferencias();
+                await Promise.all(CHAVES_STORAGE_APP.map(chave => storageRemove(chave)));
+                await atualizarInterface(); await atualizarInterfaceReferencias();
                 mostrarAlerta('✅ Todos os dados foram limpos com sucesso!<br>A aplicação vai reiniciar.', 'success');
                 setTimeout(() => { location.reload(); }, 2000);
             } catch (error) {
@@ -4148,7 +4285,7 @@
             if (!(await verificarBibliotecaExcel())) { event.target.value = ''; return; }
 
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
@@ -4198,7 +4335,7 @@
                         else { registos.push(novoRegisto); adicionados++; }
                     });
 
-                    if (salvarDados()) {
+                    if (await salvarDados()) {
                         let mensagem = `✅ Importação concluída!<br>${adicionados} registos adicionados`;
                         if (duplicados > 0) mensagem += `<br>⚠️ ${duplicados} duplicados ignorados`;
                         mensagem += `<br>Total atual: ${registos.length} registos`;
@@ -4208,7 +4345,7 @@
                         // para não ficarem "adicionados" sem terem sido persistidos
                         registos.splice(registos.length - adicionados, adicionados);
                     }
-                    atualizarInterface();
+                    await atualizarInterface();
 
                 } catch (error) {
                     console.error('Erro ao importar:', error);
@@ -4316,7 +4453,7 @@
 
             if (ext === 'json') {
                 const reader = new FileReader();
-                reader.onload = function(e) {
+                reader.onload = async function(e) {
                     try {
                         const backup = JSON.parse(e.target.result);
 
@@ -4397,10 +4534,10 @@
                             return r;
                         });
 
-                        if (salvarDados()) {
-                            salvarReferencias();
-                            atualizarInterface();
-                            atualizarInterfaceReferencias();
+                        if (await salvarDados()) {
+                            await salvarReferencias();
+                            await atualizarInterface();
+                            await atualizarInterfaceReferencias();
                             popularDataLists();
                             popularUtilizadores();
                             popularErros();
@@ -4426,7 +4563,7 @@
                             tUtilizadores = estadoAnterior.tUtilizadores;
                             tErros = estadoAnterior.tErros;
                             tOrigem = estadoAnterior.tOrigem;
-                            atualizarInterface();
+                            await atualizarInterface();
                         }
 
                     } catch (err) {
@@ -4491,11 +4628,11 @@
             mostrarLoadingReferencia(true);
 
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    
+
                     // Verificar se as sheets existem
                     const sheetsObrigatorias = ['T_Artigo', 'T_Serviços', 'T_Utilizadores', 'T_Erros'];
                     
@@ -4605,10 +4742,10 @@
                     }
 
                     // Salvar no localStorage
-                    salvarReferencias();
-                    
+                    await salvarReferencias();
+
                     // Atualizar interface
-                    atualizarInterfaceReferencias();
+                    await atualizarInterfaceReferencias();
                     
                     // Popular datalists, select de utilizadores, erros e origens
                     popularDataLists();
@@ -4722,14 +4859,14 @@
             return true;
         }
 
-        function salvarReferencias() {
-            const resultados = [
+        async function salvarReferencias() {
+            const resultados = await Promise.all([
                 storageSetJSON(STORAGE_REF_ARTIGO, tArtigo),
                 storageSetJSON(STORAGE_REF_SERVICOS, tServicos),
                 storageSetJSON(STORAGE_REF_UTILIZADORES, tUtilizadores),
                 storageSetJSON(STORAGE_REF_ERROS, tErros),
                 storageSetJSON(STORAGE_REF_ORIGEM, tOrigem),  // NOVO: Salvar origens
-            ];
+            ]);
             const falha = resultados.find(r => !r.ok);
             if (falha) {
                 mostrarAlertaReferencia(
@@ -4744,7 +4881,7 @@
         // Garantir funções de referência no escopo global
         window.carregarReferencia = carregarReferencia;
 
-        function carregarReferencias() {
+        async function carregarReferencias() {
             try {
                 // storageGetJSON nunca lança e valida a forma: uma tabela
                 // corrompida por uma gravação interrompida a meio (quota
@@ -4752,15 +4889,15 @@
                 // passar e as chamadas .length/.find()/.map() seguintes
                 // lançarem exceção e travarem o arranque da app (mesma
                 // proteção que carregarDados() já usa para os registos)
-                tArtigo = storageGetJSON(STORAGE_REF_ARTIGO, [], Array.isArray);
-                tServicos = storageGetJSON(STORAGE_REF_SERVICOS, [], Array.isArray);
-                tUtilizadores = storageGetJSON(STORAGE_REF_UTILIZADORES, [], Array.isArray);
+                tArtigo = await storageGetJSON(STORAGE_REF_ARTIGO, [], Array.isArray);
+                tServicos = await storageGetJSON(STORAGE_REF_SERVICOS, [], Array.isArray);
+                tUtilizadores = await storageGetJSON(STORAGE_REF_UTILIZADORES, [], Array.isArray);
 
-                const erros = storageGet(STORAGE_REF_ERROS);
-                const origem = storageGet(STORAGE_REF_ORIGEM);  // NOVO: Carregar origens
+                const erros = await storageGet(STORAGE_REF_ERROS);
+                const origem = await storageGet(STORAGE_REF_ORIGEM);  // NOVO: Carregar origens
 
                 if (erros) {
-                    tErros = storageGetJSON(STORAGE_REF_ERROS, [], Array.isArray);
+                    tErros = await storageGetJSON(STORAGE_REF_ERROS, [], Array.isArray);
                     debugLog('✅ T_Erros carregada do localStorage:', tErros.length, 'erros');
                     if (tErros.length > 0) {
                         debugLog('Primeiro erro:', tErros[0]);
@@ -4772,7 +4909,7 @@
 
                 // NOVO: Carregar origens
                 if (origem) {
-                    tOrigem = storageGetJSON(STORAGE_REF_ORIGEM, [], Array.isArray);
+                    tOrigem = await storageGetJSON(STORAGE_REF_ORIGEM, [], Array.isArray);
                     debugLog('✅ T_Origem carregada do localStorage:', tOrigem.length, 'origens');
                 } else {
                     // Valores padrão se não houver ficheiro de referência
@@ -4790,7 +4927,7 @@
                 popularOrigens();  // NOVO: Popular dropdown de origens
                 
                 if (tArtigo.length > 0 && tServicos.length > 0) {
-                    atualizarInterfaceReferencias();
+                    await atualizarInterfaceReferencias();
                     popularDataLists();
                 }
             } catch (e) {
@@ -4798,7 +4935,7 @@
             }
         }
 
-        function atualizarInterfaceReferencias() {
+        async function atualizarInterfaceReferencias() {
             const totalArtigos = document.getElementById('totalArtigos');
             const totalServicos = document.getElementById('totalServicos');
             const statusReferencia = document.getElementById('statusReferencia');
@@ -4866,18 +5003,18 @@
             renderizarBotoesOrigem('containerBotoesOrigemQualidade', 'qualidade');
             
             // Atualizar indicador visual da tab
-            atualizarIndicadorTabGestao();
+            await atualizarIndicadorTabGestao();
         }
 
-        function atualizarIndicadorTabGestao() {
+        async function atualizarIndicadorTabGestao() {
             const tabGestao = document.getElementById('mainTabGestao');
             if (!tabGestao) return;
-            
+
             // Verificar se referências estão carregadas
             const referenciasCarregadas = (tArtigo.length > 0 && tServicos.length > 0);
-            
+
             // Verificar timestamp do último backup
-            const lastBackup = storageGet(STORAGE_BACKUP_TIMESTAMP);
+            const lastBackup = await storageGet(STORAGE_BACKUP_TIMESTAMP);
             let backupRecente = false;
             let horasDesdeBackup = null;
             
@@ -5386,7 +5523,7 @@
             }
         }
 
-        function limparReferencia() {
+        async function limparReferencia() {
             if (confirm('Tem certeza que deseja limpar os dados de referência?')) {
                 tArtigo = [];
                 tServicos = [];
@@ -5396,9 +5533,11 @@
                 // depois de "limpar referências" (v4.11.2)
                 tUtilizadores = [];
                 tErros = [];
-                [STORAGE_REF_ARTIGO, STORAGE_REF_SERVICOS, STORAGE_REF_ORIGEM,
-                 STORAGE_REF_UTILIZADORES, STORAGE_REF_ERROS]
-                    .forEach(chave => storageRemove(chave));
+                await Promise.all(
+                    [STORAGE_REF_ARTIGO, STORAGE_REF_SERVICOS, STORAGE_REF_ORIGEM,
+                     STORAGE_REF_UTILIZADORES, STORAGE_REF_ERROS]
+                        .map(chave => storageRemove(chave))
+                );
 
                 // Resetar para valores padrão
                 tOrigem = [
@@ -5413,8 +5552,8 @@
                 document.getElementById('servicosList').innerHTML = '';
                 document.getElementById('artigosList').innerHTML = '';
                 document.getElementById('referenciaDetalhes').classList.add('hidden');
-                
-                atualizarInterfaceReferencias();
+
+                await atualizarInterfaceReferencias();
                 mostrarAlertaReferencia('Referências eliminadas com sucesso', 'success');
             }
         }
@@ -5625,7 +5764,7 @@
         }
 
         // Formulário de Kanban
-        document.getElementById('kanbanForm').addEventListener('submit', function(e) {
+        document.getElementById('kanbanForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             // Validação: Tipo de Erro é obrigatório
@@ -5719,7 +5858,7 @@
                         ...dadosRegisto,
                         dataModificacao: new Date().toISOString()
                     };
-                    if (salvarDados()) {
+                    if (await salvarDados()) {
                         mostrarAlerta('✅ Registo atualizado com sucesso!', 'success');
                         // Sair do modo edição em silêncio — o alerta "Edição cancelada"
                         // substituía a confirmação de gravação acabada de mostrar (v4.11.2)
@@ -5733,7 +5872,7 @@
                     mostrarAlerta('❌ Erro: Registo não encontrado', 'warning');
                 }
 
-                atualizarInterface();
+                await atualizarInterface();
                 return;
             }
 
@@ -5762,7 +5901,7 @@
             }
 
             registos.push(registo);
-            if (salvarDados()) {
+            if (await salvarDados()) {
                 mostrarAlerta('Registo adicionado com sucesso!', 'success');
                 limparFormulario();
             } else {
@@ -5770,7 +5909,7 @@
                 // preenchido para o operador não ter de reescrever tudo
                 registos.pop();
             }
-            atualizarInterface();
+            await atualizarInterface();
         });
 
         function limparFormulario() {
@@ -5800,8 +5939,8 @@
         // Devolve true/false: os chamadores devem só anunciar sucesso e limpar
         // o formulário/estado de edição quando a gravação for confirmada,
         // caso contrário o alerta de sucesso apagava o aviso de quota (v4.11.3)
-        function salvarDados() {
-            const resultado = storageSetJSON(STORAGE_KEY, registos);
+        async function salvarDados() {
+            const resultado = await storageSetJSON(STORAGE_KEY, registos);
             if (!resultado.ok) {
                 if (resultado.quotaExcedida) {
                     mostrarAlerta('❌ Espaço de armazenamento esgotado — o último registo NÃO foi gravado.\n\nExporte um backup em 💾 Gestão dos Dados e depois limpe os registos mais antigos antes de continuar.', 'warning');
@@ -5812,7 +5951,7 @@
             }
             // Best-effort: nunca lida (só diagnóstico), a falhar não deve
             // fazer parecer que os registos acima não foram gravados
-            storageSet(STORAGE_KEY + '_version', APP_VERSION);
+            await storageSet(STORAGE_KEY + '_version', APP_VERSION);
             return true;
         }
 
@@ -5822,9 +5961,9 @@
             return lista.filter(r => r && typeof r === 'object' && (r.uuid || r.data));
         }
 
-        function carregarDados() {
+        async function carregarDados() {
             try {
-                const dados = storageGet(STORAGE_KEY);
+                const dados = await storageGet(STORAGE_KEY);
                 if (dados) {
                     const registosCarregados = JSON.parse(dados);
 
@@ -5858,24 +5997,24 @@
 
                     // Salvar se houve migração
                     if (modificado) {
-                        salvarDados();
+                        await salvarDados();
                         debugLog('✅ Migração completa: UUIDs adicionados aos registos antigos');
                     }
 
                     // Dados principais bons: a cópia legada do antigo backup
                     // automático (≤ v4.17.0) já não é precisa e ocupava quota
-                    storageRemove(STORAGE_BACKUP_LEGADO);
+                    await storageRemove(STORAGE_BACKUP_LEGADO);
 
-                    atualizarInterface();
+                    await atualizarInterface();
                 }
             } catch (e) {
                 console.error('❌ Erro ao carregar dados do localStorage:', e);
-                if (!tentarRestaurarDeBackupAutomatico(e)) {
+                if (!(await tentarRestaurarDeBackupAutomatico(e))) {
                     // Sem backup para oferecer (ou utilizador recusou): não deixar
                     // a app arrancar com `registos` num estado inválido/por definir
                     registos = [];
                     mostrarAlerta('❌ Erro ao carregar dados: ' + e.message, 'warning');
-                    atualizarInterface();
+                    await atualizarInterface();
                 }
             }
         }
@@ -5886,8 +6025,8 @@
         // deixar a aplicação arrancar sem nenhum caminho de recuperação. Já não
         // é escrita; só existe em instalações que ainda não carregaram v4.18.0.
         // Devolve true se o backup foi restaurado com sucesso.
-        function tentarRestaurarDeBackupAutomatico(erroOriginal) {
-            const backupBruto = storageGet(STORAGE_BACKUP_LEGADO);
+        async function tentarRestaurarDeBackupAutomatico(erroOriginal) {
+            const backupBruto = await storageGet(STORAGE_BACKUP_LEGADO);
             if (!backupBruto) return false;
 
             let backup;
@@ -5923,13 +6062,13 @@
             if (backup.tErros)        { tErros        = backup.tErros;        }
             if (backup.tOrigem)       { tOrigem       = backup.tOrigem;       }
 
-            if (salvarDados()) {
-                salvarReferencias();
+            if (await salvarDados()) {
+                await salvarReferencias();
                 mostrarAlerta(`✅ Backup automático restaurado com sucesso!<br>${registos.length} registo(s) recuperado(s) de ${dataBackup}.`, 'success');
             } else {
                 mostrarAlerta('⚠️ Backup restaurado apenas em memória — a gravação falhou (ver aviso anterior). Exporte um backup manual assim que possível.', 'warning');
             }
-            atualizarInterface();
+            await atualizarInterface();
             return true;
         }
 
@@ -7416,7 +7555,7 @@
             atualizarContagemOrigensQualidade(registosFiltrados);
         }
         
-        function atualizarInterface() {
+        async function atualizarInterface() {
             const temDados = registos.length > 0;
             
             // Calcular total de kanbans emitidos
@@ -7456,11 +7595,11 @@
             }
 
             // Atualizar informação do backup
-            atualizarInfoBackup();
+            await atualizarInfoBackup();
         }
 
-        function atualizarInfoBackup() {
-            const backupTimestamp = storageGet(STORAGE_BACKUP_TIMESTAMP);
+        async function atualizarInfoBackup() {
+            const backupTimestamp = await storageGet(STORAGE_BACKUP_TIMESTAMP);
             if (backupTimestamp) {
                 const data = new Date(backupTimestamp);
                 const dataFormatada = data.toLocaleString('pt-PT', {
@@ -7664,7 +7803,7 @@
             return `${partes[2]}/${partes[1]}/${partes[0]}`;
         }
 
-        function eliminarRegisto(identificador) {
+        async function eliminarRegisto(identificador) {
             const identificadorNormalizado = String(identificador);
             const totalAntes = registos.length;
 
@@ -7680,9 +7819,9 @@
                     return;
                 }
 
-                if (salvarDados()) {
+                if (await salvarDados()) {
                     aplicarFiltros();
-                    atualizarInterface();
+                    await atualizarInterface();
                     // A linha eliminada ficava na tabela do Histórico até se
                     // reabrir a tab; mesmos filtros = mantém as páginas abertas
                     aplicarFiltrosHistorico();

@@ -90,6 +90,9 @@ describe('Histórico', () => {
             const uuidAlvo = await page.locator('#histDataTable .btn-acao-eliminar').nth(120).getAttribute('data-uuid');
             page.once('dialog', d => d.accept());
             await page.locator('#histDataTable .btn-acao-eliminar').nth(120).click();
+            // eliminarRegisto() é assíncrona (grava no IndexedDB) — esperar
+            // pela remoção em vez de verificar logo a seguir ao clique
+            await page.waitForFunction(() => document.querySelectorAll('#histDataTable tr').length === 149);
 
             assert.equal(await contarLinhas(page), 149);
             assert.equal(await page.textContent('#histTotalRegistos'), '149');
@@ -130,7 +133,14 @@ describe('Histórico', () => {
             assert.ok(await page.isVisible('#btnCancelarEdicao'), 'modo edição ativo');
 
             await page.fill('#qtdKanbans', '7');
+            const antesDoSubmit = await page.textContent('#importAlert');
             await page.click('#kanbanForm button[type="submit"]');
+            // O submit é assíncrono (grava no IndexedDB) — esperar que o
+            // alerta mude antes de ler o resultado da gravação
+            await page.waitForFunction(
+                anterior => document.getElementById('importAlert').textContent !== anterior,
+                antesDoSubmit
+            );
 
             const gravados = await lerStorageJSON(page, 'kanban_registos');
             assert.equal(gravados.length, 1, 'edição não cria um registo novo');

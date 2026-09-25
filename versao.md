@@ -4,6 +4,20 @@
 
 ---
 
+## v4.23.0 — 25 Set 2026
+
+### 🗄️ Migração de localStorage para IndexedDB
+
+O `localStorage` tem um limite prático de ~5-10MB por origem e é síncrono — a leitura/escrita de arrays grandes (registos, T_Artigo) bloqueia a interface. O IndexedDB não tem nenhuma destas limitações.
+
+- **Alterado:** o motor de armazenamento passa a ser o IndexedDB. A API pública do wrapper introduzido na v4.21.0 (`storageGet`/`storageSet`/`storageRemove`/`storageGetJSON`/`storageSetJSON`) mantém a mesma forma — só passa a devolver `Promise`s. Todas as funções que dependem dela (`salvarDados`, `carregarReferencias`, `atualizarInterface`, e mais umas 10) passaram a `async`, e todos os chamadores foram atualizados
+- **Novo:** migração automática e silenciosa, uma única vez, dos dados de instalações ≤ v4.22.0 — corre no arranque, antes de carregar os dados, e limpa o `localStorage` das chaves migradas (liberta esse espaço)
+- **Novo:** se o IndexedDB estiver indisponível (raro, mas acontece nalguns webviews/iframes restritos), a app cai para `localStorage`, com a mesma garantia de nunca lançar exceção introduzida na v4.21.0
+- Sem alterações de comportamento visíveis para o utilizador — os mesmos fluxos, os mesmos avisos de quota esgotada (agora um limite muito mais alto)
+- **Testes:** novo `e2e/storage.e2e.js` confirma que os dados vão para o IndexedDB, que a migração funciona sem perder registos, que o fallback para `localStorage` funciona sem IndexedDB, e que a app aguenta dados muito acima do limite do `localStorage` (testado com ~17MB, que excede `localStorage` mas não o IndexedDB)
+
+---
+
 ## v4.22.0 — 25 Set 2026
 
 ### 🧹 Filtros dos dashboards: fábrica partilhada pelos 3
