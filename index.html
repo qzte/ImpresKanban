@@ -75,7 +75,7 @@
     </script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.20.0 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.21.0 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
 
            Histórico de versões: versao.md (o changelog que estava aqui
@@ -2815,7 +2815,7 @@
             if (hoje.getDay() !== BACKUP_DIA_SEMANA) return; // Não é o dia configurado
 
             const semanaAtual = obterChaveSemana(hoje);
-            const semanaGuardada = localStorage.getItem(STORAGE_BACKUP_SEMANAL);
+            const semanaGuardada = storageGet(STORAGE_BACKUP_SEMANAL);
 
             if (semanaGuardada === semanaAtual) return; // Backup já feito esta semana
 
@@ -2886,10 +2886,13 @@
                     guardado = true;
                 }
 
-                // Backup concluído — registar semana e fechar modal
+                // Backup concluído (o ficheiro já foi guardado acima) —
+                // registar a semana é best-effort: se falhar, o modal volta a
+                // aparecer no próximo arranque, o que é aceitável (o ficheiro
+                // já está a salvo) e bem melhor do que travar aqui a meio
                 const semanaAtual = obterChaveSemana(new Date());
-                localStorage.setItem(STORAGE_BACKUP_SEMANAL, semanaAtual);
-                localStorage.setItem('kanban_backup_semanal_timestamp', timestamp);
+                storageSet(STORAGE_BACKUP_SEMANAL, semanaAtual);
+                storageSet('kanban_backup_semanal_timestamp', timestamp);
                 registarBackupFicheiro(timestamp);
 
                 const modal = document.getElementById('modalBackupSemanal');
@@ -2986,6 +2989,118 @@
             STORAGE_BACKUP_TIMESTAMP,
             'kanban_backup_semanal_timestamp'
         ];
+
+        // ==========================================
+        // WRAPPER DE localStorage
+        // ==========================================
+        // localStorage pode falhar por mais motivos do que quota esgotada:
+        // modo privado nalguns browsers, política do dispositivo a bloquear
+        // storage, acesso restrito num iframe, etc. Antes desta wrapper
+        // várias funções chamavam getItem/setItem/removeItem diretamente,
+        // sem try/catch, a assumir que nunca falhava — uma exceção não
+        // apanhada a meio de atualizarInterface() ou do arranque
+        // (DOMContentLoaded) partia a app inteira por uma leitura de
+        // diagnóstico sem importância (ex.: atualizarInfoBackup()).
+        //
+        // Os helpers abaixo nunca lançam: devolvem um valor neutro
+        // (null/false) e registam um aviso na consola. Quem precisa de
+        // reagir ao erro em concreto (salvarDados() avisando de quota
+        // esgotada) recebe informação suficiente sem repetir o try/catch.
+
+        /**
+         * Lê uma chave do localStorage. Nunca lança.
+         * @param {string} chave
+         * @returns {string|null} valor lido; null se a chave não existe OU
+         *   se a leitura falhou (indistinguível de propósito — em ambos os
+         *   casos quem chama trata como "não há valor guardado")
+         */
+        function storageGet(chave) {
+            try {
+                return localStorage.getItem(chave);
+            } catch (e) {
+                console.warn(`⚠️ Falha ao ler "${chave}" do localStorage:`, e);
+                return null;
+            }
+        }
+
+        /**
+         * Escreve uma chave no localStorage. Nunca lança.
+         * @param {string} chave
+         * @param {string} valor
+         * @returns {{ok: boolean, quotaExcedida: boolean, erro: (Error|null)}}
+         */
+        function storageSet(chave, valor) {
+            try {
+                localStorage.setItem(chave, valor);
+                return { ok: true, quotaExcedida: false, erro: null };
+            } catch (e) {
+                // Espaço esgotado é o erro realista neste uso — sinalizado à
+                // parte para quem chama poder mostrar uma mensagem
+                // acionável em vez do texto técnico do browser (v4.11.2)
+                const quotaExcedida = !!e && (e.name === 'QuotaExceededError' ||
+                    e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22);
+                console.warn(`⚠️ Falha ao gravar "${chave}" no localStorage:`, e);
+                return { ok: false, quotaExcedida, erro: e };
+            }
+        }
+
+        /**
+         * Remove uma chave do localStorage. Nunca lança.
+         * @param {string} chave
+         * @returns {boolean} true se removida (ou já não existia); false se
+         *   a remoção falhou
+         */
+        function storageRemove(chave) {
+            try {
+                localStorage.removeItem(chave);
+                return true;
+            } catch (e) {
+                console.warn(`⚠️ Falha ao remover "${chave}" do localStorage:`, e);
+                return false;
+            }
+        }
+
+        /**
+         * storageGet() + JSON.parse numa só chamada. Nunca lança: qualquer
+         * falha (leitura, JSON inválido, ou validar(valor) a rejeitar a
+         * forma) devolve valorPadrao em vez de propagar a exceção.
+         * @param {string} chave
+         * @param {*} [valorPadrao] - devolvido se a chave não existe, o
+         *   JSON é inválido, ou validar(valor) devolve false
+         * @param {function(*): boolean} [validar] - ex.: Array.isArray,
+         *   para rejeitar um valor com a forma errada — uma gravação
+         *   interrompida por quota deixa por vezes um objeto/string em vez
+         *   do array esperado, e isso já causou arranques com a app num
+         *   estado inválido (v4.11.2)
+         * @returns {*}
+         */
+        function storageGetJSON(chave, valorPadrao = null, validar = null) {
+            const bruto = storageGet(chave);
+            if (bruto === null) return valorPadrao;
+            let valor;
+            try {
+                valor = JSON.parse(bruto);
+            } catch (e) {
+                console.warn(`⚠️ "${chave}" no localStorage não é JSON válido — a usar o valor por omissão:`, e);
+                return valorPadrao;
+            }
+            if (validar && !validar(valor)) {
+                console.warn(`⚠️ "${chave}" no localStorage não tem a forma esperada — a usar o valor por omissão.`);
+                return valorPadrao;
+            }
+            return valor;
+        }
+
+        /**
+         * JSON.stringify + storageSet() numa só chamada.
+         * @param {string} chave
+         * @param {*} valor
+         * @returns {{ok: boolean, quotaExcedida: boolean, erro: (Error|null)}}
+         */
+        function storageSetJSON(chave, valor) {
+            return storageSet(chave, JSON.stringify(valor));
+        }
+
         // ==========================================
         // FUNÇÕES DE NAVEGAÇÃO (CARREGADAS PRIMEIRO)
         // ==========================================
@@ -3683,7 +3798,7 @@
         // Função para mostrar citação aleatória
         function mostrarCitacao() {
             // Obter índice salvo ou gerar novo
-            let index = localStorage.getItem(STORAGE_CITACAO_INDEX);
+            let index = storageGet(STORAGE_CITACAO_INDEX);
             
             if (index === null) {
                 // Primeira vez - escolher aleatório
@@ -3693,8 +3808,9 @@
                 index = (parseInt(index) + 1) % citacoes.length;
             }
             
-            // Salvar índice para próxima vez
-            localStorage.setItem(STORAGE_CITACAO_INDEX, index);
+            // Salvar índice para próxima vez (best-effort: falhar aqui não
+            // deve impedir a citação de ser mostrada)
+            storageSet(STORAGE_CITACAO_INDEX, index);
             
             // Mostrar citação
             document.getElementById('inspiracao').textContent = `"${citacoes[index]}"`;
@@ -3777,7 +3893,7 @@
                 versao: APP_VERSION,
                 dataBackup: timestamp,
                 registos: registos,
-                citacaoIndex: localStorage.getItem(STORAGE_CITACAO_INDEX),
+                citacaoIndex: storageGet(STORAGE_CITACAO_INDEX),
                 totalRegistos: registos.length,
                 totalKanbans: registos.reduce((sum, r) => sum + (r.qtdKanbans || 1), 0)
             };
@@ -3803,11 +3919,7 @@
         // salvarReferencias(), com reversão em caso de falha. O backup que
         // conta é o ficheiro JSON exportado; esta função regista quando foi.
         function registarBackupFicheiro(timestamp) {
-            try {
-                localStorage.setItem(STORAGE_BACKUP_TIMESTAMP, timestamp);
-            } catch (e) {
-                console.warn('⚠️ Não foi possível registar a data do backup:', e);
-            }
+            storageSet(STORAGE_BACKUP_TIMESTAMP, timestamp);
             atualizarIndicadorTabGestao();
             atualizarInfoBackup();
         }
@@ -3924,7 +4036,7 @@
                 // Remover apenas as chaves desta aplicação. localStorage.clear()
                 // apagava também dados de outras páginas alojadas na mesma
                 // origem (ex.: outros projetos no mesmo GitHub Pages) — v4.11.2
-                CHAVES_STORAGE_APP.forEach(chave => localStorage.removeItem(chave));
+                CHAVES_STORAGE_APP.forEach(chave => storageRemove(chave));
                 atualizarInterface(); atualizarInterfaceReferencias();
                 mostrarAlerta('✅ Todos os dados foram limpos com sucesso!<br>A aplicação vai reiniciar.', 'success');
                 setTimeout(() => { location.reload(); }, 2000);
@@ -4272,8 +4384,10 @@
                             if (backup.tOrigem)       { tOrigem       = backup.tOrigem;       }
                         }
 
-                        if (backup.citacaoIndex)  {
-                            localStorage.setItem(STORAGE_CITACAO_INDEX, backup.citacaoIndex);
+                        // Best-effort: falhar aqui não deve ser reportado como
+                        // "erro ao ler o ficheiro JSON" (é a gravação que falhou)
+                        if (backup.citacaoIndex) {
+                            storageSet(STORAGE_CITACAO_INDEX, backup.citacaoIndex);
                         }
 
                         // Migração: garantir UUIDs
@@ -4609,14 +4723,21 @@
         }
 
         function salvarReferencias() {
-            try {
-                localStorage.setItem(STORAGE_REF_ARTIGO, JSON.stringify(tArtigo));
-                localStorage.setItem(STORAGE_REF_SERVICOS, JSON.stringify(tServicos));
-                localStorage.setItem(STORAGE_REF_UTILIZADORES, JSON.stringify(tUtilizadores));
-                localStorage.setItem(STORAGE_REF_ERROS, JSON.stringify(tErros));
-                localStorage.setItem(STORAGE_REF_ORIGEM, JSON.stringify(tOrigem));  // NOVO: Salvar origens
-            } catch (e) {
-                mostrarAlertaReferencia('Erro ao salvar referências: ' + e.message, 'warning');
+            const resultados = [
+                storageSetJSON(STORAGE_REF_ARTIGO, tArtigo),
+                storageSetJSON(STORAGE_REF_SERVICOS, tServicos),
+                storageSetJSON(STORAGE_REF_UTILIZADORES, tUtilizadores),
+                storageSetJSON(STORAGE_REF_ERROS, tErros),
+                storageSetJSON(STORAGE_REF_ORIGEM, tOrigem),  // NOVO: Salvar origens
+            ];
+            const falha = resultados.find(r => !r.ok);
+            if (falha) {
+                mostrarAlertaReferencia(
+                    falha.quotaExcedida
+                        ? '❌ Espaço de armazenamento esgotado — as referências podem não ter ficado todas gravadas.'
+                        : 'Erro ao salvar referências: ' + falha.erro.message,
+                    'warning'
+                );
             }
         }
 
@@ -4625,31 +4746,21 @@
 
         function carregarReferencias() {
             try {
-                const artigos = localStorage.getItem(STORAGE_REF_ARTIGO);
-                const servicos = localStorage.getItem(STORAGE_REF_SERVICOS);
-                const utilizadores = localStorage.getItem(STORAGE_REF_UTILIZADORES);
-                const erros = localStorage.getItem(STORAGE_REF_ERROS);
-                const origem = localStorage.getItem(STORAGE_REF_ORIGEM);  // NOVO: Carregar origens
-                
-                // Cada tabela pode ter ficado corrompida por uma gravação
-                // interrompida a meio (quota excedida) — um JSON válido mas
-                // que não é um array (ex.: objeto/string) faria as chamadas
-                // .length/.find()/.map() seguintes lançar excepção e travar
-                // o arranque da app. Mesma proteção já usada em carregarDados().
-                const paraArrayOuVazio = (json, nomeTabela) => {
-                    const valor = JSON.parse(json);
-                    if (!Array.isArray(valor)) {
-                        console.warn(`⚠️ ${nomeTabela} no localStorage não é uma lista — a ignorar e a usar tabela vazia.`);
-                        return [];
-                    }
-                    return valor;
-                };
+                // storageGetJSON nunca lança e valida a forma: uma tabela
+                // corrompida por uma gravação interrompida a meio (quota
+                // excedida) fica como [] em vez de deixar objeto/string
+                // passar e as chamadas .length/.find()/.map() seguintes
+                // lançarem exceção e travarem o arranque da app (mesma
+                // proteção que carregarDados() já usa para os registos)
+                tArtigo = storageGetJSON(STORAGE_REF_ARTIGO, [], Array.isArray);
+                tServicos = storageGetJSON(STORAGE_REF_SERVICOS, [], Array.isArray);
+                tUtilizadores = storageGetJSON(STORAGE_REF_UTILIZADORES, [], Array.isArray);
 
-                if (artigos) tArtigo = paraArrayOuVazio(artigos, 'T_Artigo');
-                if (servicos) tServicos = paraArrayOuVazio(servicos, 'T_Serviços');
-                if (utilizadores) tUtilizadores = paraArrayOuVazio(utilizadores, 'T_Utilizadores');
+                const erros = storageGet(STORAGE_REF_ERROS);
+                const origem = storageGet(STORAGE_REF_ORIGEM);  // NOVO: Carregar origens
+
                 if (erros) {
-                    tErros = paraArrayOuVazio(erros, 'T_Erros');
+                    tErros = storageGetJSON(STORAGE_REF_ERROS, [], Array.isArray);
                     debugLog('✅ T_Erros carregada do localStorage:', tErros.length, 'erros');
                     if (tErros.length > 0) {
                         debugLog('Primeiro erro:', tErros[0]);
@@ -4661,7 +4772,7 @@
 
                 // NOVO: Carregar origens
                 if (origem) {
-                    tOrigem = paraArrayOuVazio(origem, 'T_Origem');
+                    tOrigem = storageGetJSON(STORAGE_REF_ORIGEM, [], Array.isArray);
                     debugLog('✅ T_Origem carregada do localStorage:', tOrigem.length, 'origens');
                 } else {
                     // Valores padrão se não houver ficheiro de referência
@@ -4766,7 +4877,7 @@
             const referenciasCarregadas = (tArtigo.length > 0 && tServicos.length > 0);
             
             // Verificar timestamp do último backup
-            const lastBackup = localStorage.getItem(STORAGE_BACKUP_TIMESTAMP);
+            const lastBackup = storageGet(STORAGE_BACKUP_TIMESTAMP);
             let backupRecente = false;
             let horasDesdeBackup = null;
             
@@ -5287,7 +5398,7 @@
                 tErros = [];
                 [STORAGE_REF_ARTIGO, STORAGE_REF_SERVICOS, STORAGE_REF_ORIGEM,
                  STORAGE_REF_UTILIZADORES, STORAGE_REF_ERROS]
-                    .forEach(chave => localStorage.removeItem(chave));
+                    .forEach(chave => storageRemove(chave));
 
                 // Resetar para valores padrão
                 tOrigem = [
@@ -5690,24 +5801,19 @@
         // o formulário/estado de edição quando a gravação for confirmada,
         // caso contrário o alerta de sucesso apagava o aviso de quota (v4.11.3)
         function salvarDados() {
-            try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(registos));
-                localStorage.setItem(STORAGE_KEY + '_version', APP_VERSION);
-                return true;
-            } catch (e) {
-                // Espaço esgotado é o único erro realista aqui e a mensagem
-                // técnica do browser não ajuda o utilizador a reagir (v4.11.2)
-                const quotaExcedida = e && (e.name === 'QuotaExceededError' ||
-                    e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22);
-
-                if (quotaExcedida) {
+            const resultado = storageSetJSON(STORAGE_KEY, registos);
+            if (!resultado.ok) {
+                if (resultado.quotaExcedida) {
                     mostrarAlerta('❌ Espaço de armazenamento esgotado — o último registo NÃO foi gravado.\n\nExporte um backup em 💾 Gestão dos Dados e depois limpe os registos mais antigos antes de continuar.', 'warning');
                 } else {
-                    mostrarAlerta('Erro ao salvar dados: ' + e.message, 'warning');
+                    mostrarAlerta('Erro ao salvar dados: ' + resultado.erro.message, 'warning');
                 }
-                console.error('❌ Erro ao salvar em localStorage:', e);
                 return false;
             }
+            // Best-effort: nunca lida (só diagnóstico), a falhar não deve
+            // fazer parecer que os registos acima não foram gravados
+            storageSet(STORAGE_KEY + '_version', APP_VERSION);
+            return true;
         }
 
         // Descarta entradas que não são sequer um registo plausível (fragmento
@@ -5718,7 +5824,7 @@
 
         function carregarDados() {
             try {
-                const dados = localStorage.getItem(STORAGE_KEY);
+                const dados = storageGet(STORAGE_KEY);
                 if (dados) {
                     const registosCarregados = JSON.parse(dados);
 
@@ -5758,7 +5864,7 @@
 
                     // Dados principais bons: a cópia legada do antigo backup
                     // automático (≤ v4.17.0) já não é precisa e ocupava quota
-                    localStorage.removeItem(STORAGE_BACKUP_LEGADO);
+                    storageRemove(STORAGE_BACKUP_LEGADO);
 
                     atualizarInterface();
                 }
@@ -5781,7 +5887,7 @@
         // é escrita; só existe em instalações que ainda não carregaram v4.18.0.
         // Devolve true se o backup foi restaurado com sucesso.
         function tentarRestaurarDeBackupAutomatico(erroOriginal) {
-            const backupBruto = localStorage.getItem(STORAGE_BACKUP_LEGADO);
+            const backupBruto = storageGet(STORAGE_BACKUP_LEGADO);
             if (!backupBruto) return false;
 
             let backup;
@@ -7327,7 +7433,7 @@
         }
 
         function atualizarInfoBackup() {
-            const backupTimestamp = localStorage.getItem(STORAGE_BACKUP_TIMESTAMP);
+            const backupTimestamp = storageGet(STORAGE_BACKUP_TIMESTAMP);
             if (backupTimestamp) {
                 const data = new Date(backupTimestamp);
                 const dataFormatada = data.toLocaleString('pt-PT', {

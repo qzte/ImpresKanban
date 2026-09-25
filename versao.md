@@ -4,6 +4,19 @@
 
 ---
 
+## v4.21.0 — 25 Set 2026
+
+### 🛡️ Wrapper de localStorage
+
+Várias funções chamavam `localStorage.getItem`/`setItem`/`removeItem` diretamente, sem `try/catch`, a assumir que a operação nunca falhava. Além da quota esgotada (já tratada desde a v4.11.2), `localStorage` também pode lançar em modo privado nalguns browsers, com storage bloqueado por política do dispositivo, ou num iframe com acesso restrito — nesses casos uma exceção não apanhada a meio do arranque (`DOMContentLoaded`) ou de `atualizarInterface()` partia a app inteira, mesmo para uma leitura de diagnóstico sem importância (ex.: `atualizarInfoBackup()`).
+
+- **Novo:** `storageGet`/`storageSet`/`storageRemove`/`storageGetJSON`/`storageSetJSON` — wrapper que nunca lança; devolve um valor neutro (`null`/`false`) e regista um aviso na consola. Substitui as ~15 chamadas diretas a `localStorage` espalhadas por `mostrarCitacao`, `verificarBackupSemanal`, `criarObjetoBackup`, `atualizarIndicadorTabGestao`, `atualizarInfoBackup`, `limparReferencia`, `salvarDados`, `carregarDados`, `salvarReferencias`, `carregarReferencias`, `tentarRestaurarDeBackupAutomatico` e `limparTodosDados`
+- **Corrigido:** `tentarRestaurarDeBackupAutomatico()` lia o backup legado sem `try/catch` — se essa leitura falhasse, a exceção escapava ao próprio `catch` de `carregarDados()` que a chama, e partia o arranque da app exatamente no caminho de recuperação de dados corrompidos
+- **Corrigido:** em `salvarDados()`, uma falha ao gravar a chave de diagnóstico `_version` (não lida em lado nenhum) era reportada ao utilizador como se os registos não tivessem sido gravados, mesmo quando a gravação principal tinha tido sucesso — passa a ser melhor esforço, sem afetar o resultado
+- Testado com `localStorage` completamente bloqueado (todas as chamadas a lançar `SecurityError`): antes desta alteração a app não chegava a arrancar; agora arranca normalmente, só com avisos na consola
+
+---
+
 ## v4.20.0 — 25 Set 2026
 
 ### 🔒 Content-Security-Policy
