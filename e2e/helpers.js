@@ -183,13 +183,18 @@ async function abrirApp(browser, url, {
     }, entradas);
 
     await page.goto(url);
-    // A app termina a inicialização em DOMContentLoaded + alguns setTimeout
-    await page.waitForFunction(() => typeof registos !== 'undefined' && document.readyState === 'complete');
+    // A inicialização é assíncrona desde a v4.23.0 (IndexedDB) — esperar
+    // por window.__appPronta, não por "registos existe" (existe desde o
+    // parse do script, migração+carregarDados+carregarReferencias correm
+    // depois)
+    await page.waitForFunction(() => window.__appPronta === true);
     return { context, page, erros, logs };
 }
 
+// Lê uma chave do IndexedDB (motor de armazenamento desde a v4.23.0) através
+// do storageGetJSON da própria página, em vez de localStorage diretamente
 async function lerStorageJSON(page, chave) {
-    return page.evaluate(k => JSON.parse(localStorage.getItem(k)), chave);
+    return page.evaluate(k => storageGetJSON(k), chave);
 }
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');

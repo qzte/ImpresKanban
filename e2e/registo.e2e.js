@@ -32,6 +32,19 @@ async function preencherRegisto(page, { servicoId = '101', artigo = '12345', qtd
 
 const submeter = page => page.click('#kanbanForm button[type="submit"]');
 
+// O submit ficou assíncrono na v4.23.0 (grava no IndexedDB) — usar depois de
+// submeter() sempre que o teste for a seguir ler o resultado da gravação
+// (storage ou formulário limpo), para não verificar a meio da promise ainda
+// pendente. mostrarAlerta() é a última coisa que cada caminho do submit faz
+// (sucesso, erro de gravação, ou "registo não encontrado"), por isso o
+// texto do alerta a mudar é um sinal fiável de que a promise terminou.
+async function esperarSubmissao(page, textoAnterior) {
+    await page.waitForFunction(
+        anterior => document.getElementById('importAlert').textContent !== anterior,
+        textoAnterior
+    );
+}
+
 describe('Arranque', () => {
     test('sem dados: arranca sem erros e sem logs de diagnóstico', async () => {
         const { context, page, erros, logs } = await abrirApp(browser, url);
@@ -55,7 +68,9 @@ describe('Registo individual', () => {
             await preencherRegisto(page);
             // Armazém é preenchido a partir do artigo (campo readonly)
             assert.equal(await page.inputValue('#armazem'), 'A1');
+            const antesDoSubmit = await page.textContent('#importAlert');
             await submeter(page);
+            await esperarSubmissao(page, antesDoSubmit);
 
             const registos = await lerStorageJSON(page, 'kanban_registos');
             assert.equal(registos.length, 1);
@@ -81,7 +96,7 @@ describe('Registo individual', () => {
         try {
             await preencherRegisto(page, { servicoId: '999' });
             await submeter(page);
-            assert.equal(await page.evaluate(() => localStorage.getItem('kanban_registos')), null);
+            assert.equal(await page.evaluate(() => storageGet('kanban_registos')), null);
             assert.match(await page.textContent('#importAlert'), /Serviço não existe nas referências/);
             assert.deepEqual(erros, []);
         } finally {
@@ -93,7 +108,9 @@ describe('Registo individual', () => {
         const { context, page, erros } = await abrirApp(browser, url, { storage: REFERENCIAS });
         try {
             await preencherRegisto(page);
+            const antesDoSubmit = await page.textContent('#importAlert');
             await submeter(page);
+            await esperarSubmissao(page, antesDoSubmit);
 
             const dialogos = [];
             page.on('dialog', d => { dialogos.push(d.message()); d.dismiss(); });
@@ -113,9 +130,11 @@ describe('Registo individual', () => {
         const { context, page, erros } = await abrirApp(browser, url, { storage: REFERENCIAS });
         try {
             await preencherRegisto(page);
+            const antesDoSubmit = await page.textContent('#importAlert');
             await submeter(page);
+            await esperarSubmissao(page, antesDoSubmit);
             await page.reload();
-            await page.waitForFunction(() => typeof registos !== 'undefined' && registos.length === 1);
+            await page.waitForFunction(() => window.__appPronta && registos.length === 1);
 
             await page.click('#opTabHistorico');
             await page.waitForSelector('#histDataTable tr .btn-acao-editar');

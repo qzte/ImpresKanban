@@ -2,7 +2,7 @@
 
 > Ferramenta web **100% offline** para controlo e análise de Kanban e gestão de KPI para equipas de manutenção de supermercados.
 
-**Versão atual:** 4.22.0 — servida como `index.html`
+**Versão atual:** 4.23.0 — servida como `index.html`
 
 ---
 
@@ -126,7 +126,7 @@ Ficheiro Excel (`.xlsx`) com as seguintes folhas obrigatórias:
 ### Recursos Utilizados
 - **SheetJS (xlsx.js):** Processamento de ficheiros Excel
 - **jsPDF + AutoTable:** Geração de relatórios PDF
-- **LocalStorage:** Armazenamento local de dados (pedido como persistente via `navigator.storage.persist()`). Não substitui o backup: exporte regularmente o **Backup JSON** para ficheiro — a tab 💾 Gestão dos Dados fica amarela se o último tiver mais de 7 dias
+- **IndexedDB:** Armazenamento local de dados (pedido como persistente via `navigator.storage.persist()`), sem o limite prático de ~5-10MB do `localStorage`. Não substitui o backup: exporte regularmente o **Backup JSON** para ficheiro — a tab 💾 Gestão dos Dados fica amarela se o último tiver mais de 7 dias
 - **File API / Blob API:** Upload e download de ficheiros
 - **Service Worker (`sw.js`) + `manifest.json`:** Instalação como PWA e cache-first para funcionamento offline
 
@@ -201,7 +201,7 @@ npm run test:e2e
 | Pasta | O que cobre |
 |---|---|
 | `test/` | Funções puras extraídas de `index.html` (validações, datas, pesquisas nas referências, merge de backups) |
-| `e2e/` | Fluxos completos no browser: arranque, registo individual (validação, duplicados), Histórico (paginação, filtros, editar, eliminar), backup JSON (exportar, importar Concatenar/Substituir, ficheiro inválido), backup semanal, recuperação de dados corrompidos, Content-Security-Policy (com xlsx.js/jsPDF/autotable reais — ver `e2e/fixtures/README.md`) e os filtros dos 3 dashboards |
+| `e2e/` | Fluxos completos no browser: arranque, registo individual (validação, duplicados), Histórico (paginação, filtros, editar, eliminar), backup JSON (exportar, importar Concatenar/Substituir, ficheiro inválido), backup semanal, recuperação de dados corrompidos, Content-Security-Policy (com xlsx.js/jsPDF/autotable reais — ver `e2e/fixtures/README.md`), os filtros dos 3 dashboards e o motor de armazenamento IndexedDB (migração, fallback, limite acima do do localStorage) |
 
 Os testes de interface correm com o relógio fixo, fuso de Lisboa e sem rede (CDN bloqueadas), por isso dão o mesmo resultado em qualquer dia. As duas suites correm no CI em cada PR.
 
@@ -213,7 +213,8 @@ Consulte o ficheiro [`versao.md`](./versao.md) para o histórico completo.
 
 | Versão | Data | Destaque |
 |---|---|---|
-| **4.22.0** | 25 Set 2026 | 🧹 Filtros dos dashboards: fábrica partilhada pelos 3 |
+| **4.23.0** | 25 Set 2026 | 🗄️ Migração de localStorage para IndexedDB |
+| 4.22.0 | 25 Set 2026 | 🧹 Filtros dos dashboards: fábrica partilhada pelos 3 |
 | 4.21.0 | 25 Set 2026 | 🛡️ Wrapper de localStorage |
 | 4.20.0 | 25 Set 2026 | 🔒 Content-Security-Policy |
 | 4.19.0 | 25 Set 2026 | 📋 Histórico paginado (100 linhas + "Mostrar mais") |

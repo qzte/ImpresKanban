@@ -52,10 +52,14 @@ describe('Backup JSON', () => {
             assert.equal(backup.totalKanbans, 4);
             assert.equal(backup.tArtigo.length, 2, 'inclui as referências');
 
+            // registarBackupFicheiro() é assíncrona — esperar que o
+            // indicador mude antes de o verificar, em vez de confiar no
+            // tempo que lerDownload() já levou
+            await page.waitForFunction(() => document.getElementById('backupTimestamp').textContent !== 'Nunca');
             assert.match(await page.getAttribute('#mainTabGestao', 'class'), /tab-status-success/);
             assert.equal(await page.textContent('#backupTimestamp'), '23/09/2026, 10:00');
-            // O backup automático no localStorage foi removido em v4.18.0
-            assert.equal(await page.evaluate(() => localStorage.getItem('kanban_backup')), null);
+            // O backup automático foi removido em v4.18.0 — nunca escrito
+            assert.equal(await page.evaluate(() => storageGet('kanban_backup')), null);
             assert.deepEqual(erros, []);
         } finally {
             await context.close();
@@ -70,7 +74,10 @@ describe('Backup JSON', () => {
             const dialogos = [];
             page.on('dialog', d => { dialogos.push(d.message()); d.accept(); }); // importar? OK; concatenar? OK
             await page.setInputFiles('#fileBackup', ficheiroBackup([criarRegisto(2), criarRegisto(3)]));
-            await page.waitForFunction(() => registos.length === 3);
+            // registos.length já muda antes de salvarDados() gravar no
+            // IndexedDB (o push() é síncrono) — esperar pelo alerta final,
+            // que só aparece depois de a gravação assíncrona terminar
+            await page.waitForFunction(() => /concatenado com sucesso/.test(document.getElementById('importAlert').textContent));
 
             assert.equal(dialogos.length, 2);
             assert.match(dialogos[1], /Concatenar com os dados atuais/);
@@ -90,7 +97,9 @@ describe('Backup JSON', () => {
             let n = 0;
             page.on('dialog', d => (n++ === 0 ? d.accept() : d.dismiss())); // importar? OK; concatenar? Cancelar
             await page.setInputFiles('#fileBackup', ficheiroBackup([criarRegisto(9)]));
-            await page.waitForFunction(() => registos.length === 1);
+            // Substituir também grava de forma assíncrona — esperar pelo
+            // alerta final, não só pela troca (síncrona) de `registos`
+            await page.waitForFunction(() => /restaurado com sucesso/.test(document.getElementById('importAlert').textContent));
 
             const gravados = await lerStorageJSON(page, 'kanban_registos');
             assert.deepEqual(gravados.map(r => r.uuid), ['seed-9']);
@@ -137,11 +146,14 @@ describe('Backup semanal', () => {
             ]);
             assert.equal(download.suggestedFilename(), 'Kanban_Backup_Semanal_20260925.json');
             assert.equal((await lerDownload(download)).registos.length, 1);
+            // executarBackupSemanal() só fecha o modal depois de
+            // registarBackupFicheiro() (assíncrono) terminar
+            await page.waitForFunction(() => document.getElementById('modalBackupSemanal').classList.contains('hidden'));
             assert.ok(await page.isHidden('#modalBackupSemanal'));
             assert.match(await page.getAttribute('#mainTabGestao', 'class'), /tab-status-success/);
 
             await page.reload();
-            await page.waitForFunction(() => typeof registos !== 'undefined');
+            await page.waitForFunction(() => window.__appPronta === true);
             await page.waitForTimeout(2000); // verificarBackupSemanal corre 1,5s após o arranque
             assert.ok(await page.isHidden('#modalBackupSemanal'), 'já feito esta semana');
             assert.deepEqual(erros, []);
@@ -159,13 +171,13 @@ describe('Recuperação', () => {
             aceitarDialogos: true, // "Deseja restaurar esse backup agora?" — aberto no arranque
         });
         try {
-            await page.waitForFunction(() => registos.length === 2);
+            await page.waitForFunction(() => window.__appPronta && registos.length === 2);
             assert.equal((await lerStorageJSON(page, 'kanban_registos')).length, 2);
 
             // No arranque seguinte os dados já estão bons e a cópia é apagada
             await page.reload();
-            await page.waitForFunction(() => typeof registos !== 'undefined' && registos.length === 2);
-            assert.equal(await page.evaluate(() => localStorage.getItem('kanban_backup')), null);
+            await page.waitForFunction(() => window.__appPronta && registos.length === 2);
+            assert.equal(await page.evaluate(() => storageGet('kanban_backup')), null);
             // O erro original de parse é registado com console.error — esperado aqui
             assert.ok(erros.every(e => /corrompid|JSON|Erro ao carregar/i.test(e)), erros.join('\n'));
         } finally {
