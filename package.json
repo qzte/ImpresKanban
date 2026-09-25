@@ -1,0 +1,12 @@
+{
+  "name": "impreskanban",
+  "private": true,
+  "description": "Kanban KPI Analyzer — só ferramentas de desenvolvimento (a app não tem build step)",
+  "scripts": {
+    "test": "node --test",
+    "test:e2e": "node --test --test-concurrency=1 \"e2e/*.e2e.js\""
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  }
+}
