@@ -231,3 +231,108 @@ describe('validarDuplicados', () => {
         assert.equal(encontrado.uuid, 'uuid-2');
     });
 });
+
+describe('encontrarServico / encontrarArtigo / encontrarErro', () => {
+    const tServicos = [
+        { ID_Servico: '123', Servico: 'Manutenção Caixa 1', Local: 'Loja A' },
+    ];
+    const tArtigo = [
+        { CODIGO: '0000012345', DESCRICAO_CODIGO: 'Kanban Tipo A', ARMAZEM: 'A1' },
+    ];
+    const tErros = [
+        { Codigo: '5', Descricao: 'KB Perdido' },
+    ];
+
+    const { encontrarServico, encontrarArtigo, encontrarErro } = carregarFuncoesPuras(
+        ['encontrarServico', 'encontrarArtigo', 'encontrarErro'],
+        { tServicos, tArtigo, tErros }
+    );
+
+    test('encontrarServico encontra pelo ID exato', () => {
+        assert.equal(encontrarServico('123'), tServicos[0]);
+    });
+
+    test('encontrarServico devolve undefined para ID inexistente ou vazio', () => {
+        assert.equal(encontrarServico('999'), undefined);
+        assert.equal(encontrarServico(''), undefined);
+        assert.equal(encontrarServico(null), undefined);
+    });
+
+    test('encontrarArtigo aceita o código sem zeros à esquerda (v4.11.2)', () => {
+        assert.equal(encontrarArtigo('12345'), tArtigo[0]);
+    });
+
+    test('encontrarArtigo aceita a forma canónica de 10 dígitos', () => {
+        assert.equal(encontrarArtigo('0000012345'), tArtigo[0]);
+    });
+
+    test('encontrarArtigo devolve undefined para código inexistente', () => {
+        assert.equal(encontrarArtigo('99999'), undefined);
+    });
+
+    test('encontrarErro compara o código como texto (v4.11.2)', () => {
+        // CODIGO_ERRO pode vir do Excel como número; a comparação é sempre em texto
+        assert.equal(encontrarErro(5), tErros[0]);
+        assert.equal(encontrarErro('5'), tErros[0]);
+    });
+
+    test('encontrarErro devolve undefined para código inexistente', () => {
+        assert.equal(encontrarErro('999'), undefined);
+    });
+});
+
+describe('mergeReferencia', () => {
+    const { mergeReferencia } = carregarFuncoesPuras(['mergeReferencia']);
+
+    // `mergeReferencia` corre num vm.Context isolado (ver extract-scripts.js)
+    // — os arrays/objetos que devolve pertencem a esse "realm" e têm um
+    // Array.prototype/Object.prototype diferentes dos literais deste
+    // ficheiro, pelo que assert.deepEqual falha por prototype mismatch
+    // mesmo com o mesmo conteúdo. JSON.parse(JSON.stringify(...)) devolve
+    // um valor "normal" deste realm, sem esse problema.
+    const paraHost = valor => JSON.parse(JSON.stringify(valor));
+
+    test('junta duas listas sem duplicar por chave', () => {
+        const atual = [{ CODIGO: 'A', valor: 1 }, { CODIGO: 'B', valor: 2 }];
+        const novo = [{ CODIGO: 'B', valor: 99 }, { CODIGO: 'C', valor: 3 }];
+        const resultado = mergeReferencia(atual, novo, 'CODIGO');
+        assert.deepEqual(paraHost(resultado.map(r => r.CODIGO)), ['A', 'B', 'C']);
+        // Em conflito de chave, mantém a entrada atual (v4.15.0)
+        assert.equal(resultado.find(r => r.CODIGO === 'B').valor, 2);
+    });
+
+    test('trata entradas não-array como listas vazias', () => {
+        assert.deepEqual(paraHost(mergeReferencia(null, undefined, 'CODIGO')), []);
+        assert.deepEqual(paraHost(mergeReferencia(undefined, [{ CODIGO: 'A' }], 'CODIGO')), [{ CODIGO: 'A' }]);
+    });
+
+    test('itens sem a chave são sempre adicionados (nunca considerados duplicados)', () => {
+        const resultado = mergeReferencia([{ CODIGO: 'A' }], [{}, {}], 'CODIGO');
+        assert.equal(resultado.length, 3);
+    });
+});
+
+describe('isRegistoErroKBPerdido', () => {
+    const tErros = [{ Codigo: '5', Descricao: 'KB Perdido' }];
+    const { isRegistoErroKBPerdido } = carregarFuncoesPuras(
+        ['isRegistoErroKBPerdido', 'encontrarErro', 'textoIndicaKBPerdido', 'normalizarTextoRFID'],
+        { tErros, ALIASES_KB_PERDIDO: ['kb perdido', 'kanban perdido'] }
+    );
+
+    test('identifica pelo código do erro (via referência T_Erros)', () => {
+        assert.equal(isRegistoErroKBPerdido({ tipoErro: '5' }), true);
+    });
+
+    test('identifica pelo texto livre do tipoErro, sem referência correspondente', () => {
+        assert.equal(isRegistoErroKBPerdido({ tipoErro: 'Kanban Perdido' }), true);
+    });
+
+    test('não identifica outros tipos de erro', () => {
+        assert.equal(isRegistoErroKBPerdido({ tipoErro: 'Caixa Danificada' }), false);
+    });
+
+    test('não lança excepção com registo vazio/undefined', () => {
+        assert.equal(isRegistoErroKBPerdido({}), false);
+        assert.equal(isRegistoErroKBPerdido(undefined), false);
+    });
+});
