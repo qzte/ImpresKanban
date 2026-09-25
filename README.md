@@ -2,7 +2,7 @@
 
 > Ferramenta web **100% offline** para controlo e análise de Kanban e gestão de KPI para equipas de manutenção de supermercados.
 
-**Versão atual:** 4.17.0 — servida como `index.html`
+**Versão atual:** 4.18.0 — servida como `index.html`
 
 ---
 
@@ -125,7 +125,7 @@ Ficheiro Excel (`.xlsx`) com as seguintes folhas obrigatórias:
 ### Recursos Utilizados
 - **SheetJS (xlsx.js):** Processamento de ficheiros Excel
 - **jsPDF + AutoTable:** Geração de relatórios PDF
-- **LocalStorage:** Armazenamento local de dados
+- **LocalStorage:** Armazenamento local de dados (pedido como persistente via `navigator.storage.persist()`). Não substitui o backup: exporte regularmente o **Backup JSON** para ficheiro — a tab 💾 Gestão dos Dados fica amarela se o último tiver mais de 7 dias
 - **File API / Blob API:** Upload e download de ficheiros
 - **Service Worker (`sw.js`) + `manifest.json`:** Instalação como PWA e cache-first para funcionamento offline
 
@@ -193,7 +193,8 @@ Consulte o ficheiro [`versao.md`](./versao.md) para o histórico completo.
 
 | Versão | Data | Destaque |
 |---|---|---|
-| **4.17.0** | 25 Set 2026 | ⚡ Revisão de código: carregamento diferido de xlsx.js/jsPDF, testes e robustez |
+| **4.18.0** | 25 Set 2026 | 💾 Armazenamento: fim da cópia de backup no localStorage, pedido de armazenamento persistente, pesquisas O(1) |
+| 4.17.0 | 25 Set 2026 | ⚡ Revisão de código: carregamento diferido de xlsx.js/jsPDF, testes e robustez |
 | 4.16.1 | 18 Set 2026 | 🔄 Filtro Tipo de Erro (dropdown) no Histórico, em vez de ID Tag |
 | 4.16.0 | 11 Set 2026 | ✨ Aviso de nova versão na PWA |
 | 4.15.0 | 08 Set 2026 | ✨ Concatenar backups de dois operadores (em vez de substituir) |

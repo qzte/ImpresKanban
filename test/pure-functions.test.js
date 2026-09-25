@@ -244,7 +244,7 @@ describe('encontrarServico / encontrarArtigo / encontrarErro', () => {
     ];
 
     const { encontrarServico, encontrarArtigo, encontrarErro } = carregarFuncoesPuras(
-        ['encontrarServico', 'encontrarArtigo', 'encontrarErro'],
+        ['encontrarServico', 'encontrarArtigo', 'encontrarErro', 'obterIndiceReferencia'],
         { tServicos, tArtigo, tErros }
     );
 
@@ -278,6 +278,43 @@ describe('encontrarServico / encontrarArtigo / encontrarErro', () => {
 
     test('encontrarErro devolve undefined para código inexistente', () => {
         assert.equal(encontrarErro('999'), undefined);
+    });
+});
+
+describe('obterIndiceReferencia (índice das pesquisas encontrar*)', () => {
+    // v4.18.0: as pesquisas passaram de .find() para um Map em cache por
+    // array — estes testes fixam que a cache não devolve dados obsoletos
+    // e que a semântica "primeira ocorrência" do .find() se mantém.
+    test('uma tabela reatribuída (ex.: novo ficheiro de referência) gera índice novo', () => {
+        const ctx = carregarFuncoesPuras(['encontrarArtigo', 'obterIndiceReferencia'], {
+            tArtigo: [{ CODIGO: '0000000001', DESCRICAO_CODIGO: 'Antigo' }],
+        });
+        assert.equal(ctx.encontrarArtigo('1').DESCRICAO_CODIGO, 'Antigo');
+        ctx.tArtigo = [{ CODIGO: '0000000002', DESCRICAO_CODIGO: 'Novo' }];
+        assert.equal(ctx.encontrarArtigo('1'), undefined);
+        assert.equal(ctx.encontrarArtigo('2').DESCRICAO_CODIGO, 'Novo');
+    });
+
+    test('com chaves duplicadas devolve a primeira ocorrência, como .find()', () => {
+        const tServicos = [
+            { ID_Servico: 7, Servico: 'Primeiro' },
+            { ID_Servico: '7', Servico: 'Segundo' },
+        ];
+        const { encontrarServico } = carregarFuncoesPuras(
+            ['encontrarServico', 'obterIndiceReferencia'], { tServicos }
+        );
+        assert.equal(encontrarServico('7'), tServicos[0]);
+    });
+
+    test('encontrarArtigo com as duas formas presentes devolve a que aparece primeiro', () => {
+        const tArtigo = [
+            { CODIGO: '0000012345', DESCRICAO_CODIGO: 'Canónico' },
+            { CODIGO: '12345', DESCRICAO_CODIGO: 'Curto' },
+        ];
+        const { encontrarArtigo } = carregarFuncoesPuras(
+            ['encontrarArtigo', 'obterIndiceReferencia'], { tArtigo }
+        );
+        assert.equal(encontrarArtigo('12345'), tArtigo[0]);
     });
 });
 
@@ -315,7 +352,7 @@ describe('mergeReferencia', () => {
 describe('isRegistoErroKBPerdido', () => {
     const tErros = [{ Codigo: '5', Descricao: 'KB Perdido' }];
     const { isRegistoErroKBPerdido } = carregarFuncoesPuras(
-        ['isRegistoErroKBPerdido', 'encontrarErro', 'textoIndicaKBPerdido', 'normalizarTextoRFID'],
+        ['isRegistoErroKBPerdido', 'encontrarErro', 'obterIndiceReferencia', 'textoIndicaKBPerdido', 'normalizarTextoRFID'],
         { tErros, ALIASES_KB_PERDIDO: ['kb perdido', 'kanban perdido'] }
     );
 

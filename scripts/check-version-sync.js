@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Verifica que a versão da app está sincronizada nos sítios que não podem
 // ser derivados de version.js automaticamente (são prosa/comentários, não
-// código): o cabeçalho do bloco de estilos e a entrada mais recente do
-// changelog, ambos em index.html. version.js é a fonte única para tudo o
+// código): o cabeçalho do bloco de estilos em index.html e a entrada mais
+// recente do changelog em versao.md (até v4.17.0 o changelog estava também
+// duplicado dentro de index.html). version.js é a fonte única para tudo o
 // resto (título, #appVersionDisplay, sw.js) — ver v4.15.1.
 //
 // Sai com código 1 e explica o que diverge se alguma verificação falhar.
@@ -36,10 +37,10 @@ function main() {
         'index.html'
     );
     const changelogTopo = extrair(
-        indexHtml,
-        /VERS[ÃA]O ([\d.]+) -/,
+        lerFicheiro('versao.md'),
+        /^## v([\d.]+)/m,
         'a versão da entrada mais recente do changelog',
-        'index.html'
+        'versao.md'
     );
 
     const divergencias = [];
@@ -47,7 +48,7 @@ function main() {
         divergencias.push(`- cabeçalho CSS "KANBAN KPI ANALYZER v${cabecalhoCSS}" != version.js (${fonte})`);
     }
     if (changelogTopo !== fonte) {
-        divergencias.push(`- topo do changelog "VERSÃO ${changelogTopo}" != version.js (${fonte})`);
+        divergencias.push(`- topo do changelog em versao.md "## v${changelogTopo}" != version.js (${fonte})`);
     }
 
     if (divergencias.length > 0) {

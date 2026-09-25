@@ -2,6 +2,6 @@
 // index.html carrega este ficheiro via <script src="version.js"> (define
 // APP_VERSION antes do script inline que o usa); sw.js via
 // importScripts('./version.js'). O CI (scripts/check-version-sync.js)
-// falha se o cabeçalho CSS ou a última entrada do changelog em
-// index.html divergirem deste valor.
-const APP_VERSION = '4.17.0';
+// falha se o cabeçalho CSS em index.html ou a última entrada do changelog
+// em versao.md divergirem deste valor.
+const APP_VERSION = '4.18.0';
