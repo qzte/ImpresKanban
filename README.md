@@ -14,6 +14,7 @@
 - [Formato dos Ficheiros](#formato-dos-ficheiros)
 - [Requisitos Técnicos](#requisitos-técnicos)
 - [Controlo de Versões (Git)](#controlo-de-versões-git)
+- [Testes](#-testes)
 - [Histórico de Versões](#histórico-de-versões)
 
 ---
@@ -165,16 +166,14 @@ git tag -a v4.13.0 -m "Descrição curta da alteração"
 git push origin v4.13.0
 ```
 
-### Localização obrigatória das 5 actualizações de versão no HTML
+### Onde atualizar a versão
 
-Ao incrementar a versão, actualizar **exactamente** estes 5 locais no HTML:
+A versão tem uma fonte única, `version.js` (`APP_VERSION`), usada pelo título, pelo `index.html` e pelo `sw.js`. Ao mudar de versão, atualizar estes três sítios — o CI (`scripts/check-version-sync.js`) falha se não coincidirem:
 
 ```
-1. <title>...</title>
-2. Comentário CSS no topo do bloco <style>
-3. const APP_VERSION = '...'
-4. <span id="appVersionDisplay" class="version">v... 📊</span>
-5. Bloco de changelog nos comentários CSS
+1. version.js            → const APP_VERSION = '...'
+2. index.html            → cabeçalho do bloco <style>: "KANBAN KPI ANALYZER v..."
+3. versao.md             → nova entrada "## v..." no topo
 ```
 
 ### Inicialização (primeira vez)
@@ -184,6 +183,27 @@ git clone https://github.com/SEU-USER/kanban-kpi-analyzer.git
 cd kanban-kpi-analyzer
 # Ou usar setup_git.sh se for repositório novo
 ```
+
+## 🧪 Testes
+
+A app não precisa de build. O `package.json` serve só para as ferramentas de teste.
+
+```bash
+# Testes unitários das funções puras (sem dependências)
+node --test
+
+# Testes de interface: abrem a app num Chromium real (Playwright)
+npm ci
+npx playwright install chromium   # só na primeira vez
+npm run test:e2e
+```
+
+| Pasta | O que cobre |
+|---|---|
+| `test/` | Funções puras extraídas de `index.html` (validações, datas, pesquisas nas referências, merge de backups) |
+| `e2e/` | Fluxos completos no browser: arranque, registo individual (validação, duplicados), Histórico (paginação, filtros, editar, eliminar), backup JSON (exportar, importar Concatenar/Substituir, ficheiro inválido), backup semanal e recuperação de dados corrompidos |
+
+Os testes de interface correm com o relógio fixo, fuso de Lisboa e sem rede (CDN bloqueadas), por isso dão o mesmo resultado em qualquer dia. As duas suites correm no CI em cada PR.
 
 ---
 
