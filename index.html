@@ -39,7 +39,7 @@
     </script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.18.0 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.19.0 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
 
            Histórico de versões: versao.md (o changelog que estava aqui
@@ -1847,6 +1847,13 @@
                             <!-- Preenchido dinamicamente -->
                         </tbody>
                     </table>
+                </div>
+                <!-- Paginação do Histórico (v4.19.0): mostrado só quando há mais linhas -->
+                <div id="histPaginacao" class="hidden" style="text-align: center; margin-top: var(--space-md);">
+                    <div id="histPaginacaoInfo" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;"></div>
+                    <button type="button" class="btn btn-secondary" id="btnHistMostrarMais" onclick="mostrarMaisHistorico()">
+                        ⬇️ Mostrar mais
+                    </button>
                 </div>
             </div>
         </div>
@@ -7507,6 +7514,9 @@
                 if (salvarDados()) {
                     aplicarFiltros();
                     atualizarInterface();
+                    // A linha eliminada ficava na tabela do Histórico até se
+                    // reabrir a tab; mesmos filtros = mantém as páginas abertas
+                    aplicarFiltrosHistorico();
                     mostrarAlerta('Registo eliminado com sucesso!', 'success');
                 } else {
                     // Gravação falhou: reverter a eliminação em memória
@@ -7697,8 +7707,20 @@
             _filtrosHistoricoLiveSearchConfigurado = true;
         }
 
+        // Paginação do Histórico (v4.19.0): desenhar milhares de linhas de uma
+        // vez (cada uma com innerHTML + 2 listeners) bloqueava a interface,
+        // agora ainda mais porque a pesquisa corre enquanto se escreve.
+        // Mostra-se HIST_TAMANHO_PAGINA linhas e "Mostrar mais" acrescenta
+        // as seguintes sem redesenhar as anteriores.
+        const HIST_TAMANHO_PAGINA = 100;
+        let _histFiltrados = [];     // resultado filtrado e ordenado
+        let _histMostrados = 0;      // quantas linhas estão na tabela
+        let _histChaveFiltros = null; // filtros da última pesquisa
+
         /**
-         * Aplica filtros e atualiza tabela do histórico
+         * Aplica filtros e atualiza tabela do histórico.
+         * Com os mesmos filtros (ex.: depois de eliminar um registo) mantém
+         * as páginas já abertas; filtros novos voltam à primeira página.
          */
         function aplicarFiltrosHistorico() {
             const dataInicio = document.getElementById('histDataInicio')?.value;
@@ -7749,8 +7771,18 @@
             // Atualizar tabela
             const tbody = document.getElementById('histDataTable');
             tbody.innerHTML = '';
+
+            const chaveFiltros = JSON.stringify([dataInicio, dataFim, origem, servico, artigo, tipoErroFiltro]);
+            const mostrarAte = chaveFiltros === _histChaveFiltros
+                ? Math.max(_histMostrados, HIST_TAMANHO_PAGINA)
+                : HIST_TAMANHO_PAGINA;
+            _histChaveFiltros = chaveFiltros;
+            // Ordenado por data mais recente
+            _histFiltrados = filtrados.sort((a, b) => String(b.data ?? '').localeCompare(String(a.data ?? '')));
+            _histMostrados = 0;
             
             if (filtrados.length === 0) {
+                atualizarPaginacaoHistorico();
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="10" style="text-align: center; padding: 2rem; color: var(--text-muted);">
@@ -7761,57 +7793,8 @@
                 return;
             }
             
-            // Preencher tabela (ordenado por data mais recente)
-            filtrados
-                .sort((a, b) => b.data.localeCompare(a.data))
-                .forEach(registo => {
-                    // Buscar descrição do erro
-                    let tipoErroDisplay = 'N/A';
-                    if (String(registo.tipoErro ?? '').trim()) {
-                        const erroEncontrado = encontrarErro(registo.tipoErro);
-                        if (erroEncontrado) {
-                            tipoErroDisplay = erroEncontrado.Descricao || erroEncontrado.descricao || registo.tipoErro;
-                        } else {
-                            tipoErroDisplay = registo.tipoErro;
-                        }
-                    }
-                    
-                    const row = tbody.insertRow();
-                    row.innerHTML = `
-                        <td>${escapeHTML(formatarData(registo.data))}</td>
-                        <td>${escapeHTML(registo.utilizadorNome || registo.utilizadorUUID?.substring(0,8) || 'N/A')}</td>
-                        <td>${escapeHTML(registo.servico)}<br><small style="color: var(--text-muted);">${escapeHTML(registo.servicoId)}</small></td>
-                        <td>${escapeHTML(registo.artigoDescricao)}<br><small style="color: var(--text-muted);">${escapeHTML(registo.artigo)}</small></td>
-                        <td>${escapeHTML(registo.idTag || 'N/A')}</td>
-                        <td>${escapeHTML(registo.armazem)}</td>
-                        <td><span class="badge" style="${estiloBadgeOrigem(registo.origem)}">${escapeHTML(registo.origem)}</span></td>
-                        <td style="text-align: center; font-weight: 600;">${registo.qtdKanbans || 1}</td>
-                        <td title="${escapeHTML(tipoErroDisplay)}">${escapeHTML(tipoErroDisplay)}</td>
-                        <td>
-                            <button class="btn btn-sm btn-acao-editar" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; margin-right: 0.25rem;">
-                                ✏️ Editar
-                            </button>
-                            <button class="btn btn-sm btn-acao-eliminar" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; background: var(--accent-error);" title="Eliminar registo" aria-label="Eliminar registo">
-                                🗑️
-                            </button>
-                        </td>
-                    `;
+            renderizarLinhasHistorico(mostrarAte);
 
-                    // UUID passado via dataset (API do DOM, não parsing de HTML/JS)
-                    // em vez de interpolado num onclick="...('...')" — um onclick
-                    // string nunca é seguro para valores vindos de fora (ex.: UUID
-                    // de um backup JSON manipulado) porque não há escape de atributo
-                    // que sobreviva a estar simultaneamente dentro de HTML e de JS
-                    const uuidRegisto = String(registo.uuid || '');
-                    const btnEditar = row.querySelector('.btn-acao-editar');
-                    btnEditar.dataset.uuid = uuidRegisto;
-                    btnEditar.addEventListener('click', () => editarRegisto(btnEditar.dataset.uuid));
-
-                    const btnEliminar = row.querySelector('.btn-acao-eliminar');
-                    btnEliminar.dataset.uuid = uuidRegisto;
-                    btnEliminar.addEventListener('click', () => eliminarRegisto(btnEliminar.dataset.uuid));
-                });
-            
             // Mostrar info de filtros ativos
             const filtrosAtivos = [];
             if (dataInicio || dataFim) filtrosAtivos.push('Data');
@@ -7829,6 +7812,82 @@
             } else {
                 infoEl.style.display = 'none';
             }
+        }
+
+        /**
+         * Acrescenta à tabela do Histórico as linhas de _histFiltrados até
+         * `ate` (exclusive), a partir das que já estão desenhadas.
+         */
+        function renderizarLinhasHistorico(ate) {
+            const tbody = document.getElementById('histDataTable');
+            const fim = Math.min(ate, _histFiltrados.length);
+            for (let i = _histMostrados; i < fim; i++) {
+                const registo = _histFiltrados[i];
+                // Buscar descrição do erro
+                let tipoErroDisplay = 'N/A';
+                if (String(registo.tipoErro ?? '').trim()) {
+                    const erroEncontrado = encontrarErro(registo.tipoErro);
+                    if (erroEncontrado) {
+                        tipoErroDisplay = erroEncontrado.Descricao || erroEncontrado.descricao || registo.tipoErro;
+                    } else {
+                        tipoErroDisplay = registo.tipoErro;
+                    }
+                }
+                
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${escapeHTML(formatarData(registo.data))}</td>
+                    <td>${escapeHTML(registo.utilizadorNome || registo.utilizadorUUID?.substring(0,8) || 'N/A')}</td>
+                    <td>${escapeHTML(registo.servico)}<br><small style="color: var(--text-muted);">${escapeHTML(registo.servicoId)}</small></td>
+                    <td>${escapeHTML(registo.artigoDescricao)}<br><small style="color: var(--text-muted);">${escapeHTML(registo.artigo)}</small></td>
+                    <td>${escapeHTML(registo.idTag || 'N/A')}</td>
+                    <td>${escapeHTML(registo.armazem)}</td>
+                    <td><span class="badge" style="${estiloBadgeOrigem(registo.origem)}">${escapeHTML(registo.origem)}</span></td>
+                    <td style="text-align: center; font-weight: 600;">${registo.qtdKanbans || 1}</td>
+                    <td title="${escapeHTML(tipoErroDisplay)}">${escapeHTML(tipoErroDisplay)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-acao-editar" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; margin-right: 0.25rem;">
+                            ✏️ Editar
+                        </button>
+                        <button class="btn btn-sm btn-acao-eliminar" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; background: var(--accent-error);" title="Eliminar registo" aria-label="Eliminar registo">
+                            🗑️
+                        </button>
+                    </td>
+                `;
+
+                // UUID passado via dataset (API do DOM, não parsing de HTML/JS)
+                // em vez de interpolado num onclick="...('...')" — um onclick
+                // string nunca é seguro para valores vindos de fora (ex.: UUID
+                // de um backup JSON manipulado) porque não há escape de atributo
+                // que sobreviva a estar simultaneamente dentro de HTML e de JS
+                const uuidRegisto = String(registo.uuid || '');
+                const btnEditar = row.querySelector('.btn-acao-editar');
+                btnEditar.dataset.uuid = uuidRegisto;
+                btnEditar.addEventListener('click', () => editarRegisto(btnEditar.dataset.uuid));
+
+                const btnEliminar = row.querySelector('.btn-acao-eliminar');
+                btnEliminar.dataset.uuid = uuidRegisto;
+                btnEliminar.addEventListener('click', () => eliminarRegisto(btnEliminar.dataset.uuid));
+            }
+            _histMostrados = Math.max(_histMostrados, fim);
+            atualizarPaginacaoHistorico();
+        }
+
+        function mostrarMaisHistorico() {
+            renderizarLinhasHistorico(_histMostrados + HIST_TAMANHO_PAGINA);
+        }
+
+        function atualizarPaginacaoHistorico() {
+            const pag = document.getElementById('histPaginacao');
+            if (!pag) return;
+            const total = _histFiltrados.length;
+            const restantes = total - _histMostrados;
+            pag.classList.toggle('hidden', restantes <= 0);
+            if (restantes <= 0) return;
+            document.getElementById('histPaginacaoInfo').textContent =
+                `A mostrar ${_histMostrados.toLocaleString('pt-PT')} de ${total.toLocaleString('pt-PT')} registos`;
+            document.getElementById('btnHistMostrarMais').textContent =
+                `⬇️ Mostrar mais ${Math.min(HIST_TAMANHO_PAGINA, restantes).toLocaleString('pt-PT')}`;
         }
 
         /**
