@@ -4,6 +4,19 @@
 
 ---
 
+## v4.19.0 — 25 Set 2026
+
+### 📋 Histórico paginado
+
+O Histórico desenhava **todas** as linhas filtradas de uma vez: cada linha com `innerHTML` e dois listeners. Com meses de registos, e com a pesquisa a correr enquanto se escreve (v4.17.0), a interface ficava lenta.
+
+- **Novo:** a tabela mostra os **100** registos mais recentes. O botão **"⬇️ Mostrar mais"** acrescenta os 100 seguintes sem redesenhar os anteriores, e indica "A mostrar X de Y registos". As estatísticas do topo (registos, kanbans, serviços, artigos) continuam a contar **todos** os registos filtrados
+- Filtros novos voltam à primeira página. Com os mesmos filtros (por exemplo, ao reabrir a tab depois de editar um registo), mantêm-se as páginas já abertas
+- **Corrigido:** ao eliminar um registo no Histórico, a linha continuava visível na tabela até se reabrir a tab. Agora a tabela é atualizada logo
+- **Robustez:** a ordenação por data já não falha se algum registo não tiver data
+
+---
+
 ## v4.18.0 — 25 Set 2026
 
 ### 💾 Armazenamento mais leve e seguro + pesquisas mais rápidas

@@ -2,7 +2,7 @@
 
 > Ferramenta web **100% offline** para controlo e análise de Kanban e gestão de KPI para equipas de manutenção de supermercados.
 
-**Versão atual:** 4.18.0 — servida como `index.html`
+**Versão atual:** 4.19.0 — servida como `index.html`
 
 ---
 
@@ -193,7 +193,8 @@ Consulte o ficheiro [`versao.md`](./versao.md) para o histórico completo.
 
 | Versão | Data | Destaque |
 |---|---|---|
-| **4.18.0** | 25 Set 2026 | 💾 Armazenamento: fim da cópia de backup no localStorage, pedido de armazenamento persistente, pesquisas O(1) |
+| **4.19.0** | 25 Set 2026 | 📋 Histórico paginado (100 linhas + "Mostrar mais") |
+| 4.18.0 | 25 Set 2026 | 💾 Armazenamento: fim da cópia de backup no localStorage, pedido de armazenamento persistente, pesquisas O(1) |
 | 4.17.0 | 25 Set 2026 | ⚡ Revisão de código: carregamento diferido de xlsx.js/jsPDF, testes e robustez |
 | 4.16.1 | 18 Set 2026 | 🔄 Filtro Tipo de Erro (dropdown) no Histórico, em vez de ID Tag |
 | 4.16.0 | 11 Set 2026 | ✨ Aviso de nova versão na PWA |
