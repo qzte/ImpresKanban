@@ -75,7 +75,7 @@
     </script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.21.0 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.22.0 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
 
            Histórico de versões: versao.md (o changelog que estava aqui
@@ -6137,43 +6137,23 @@
             return { dataInicio, dataFim };
         }
 
-        function filtroRapido(tipo) {
-            const intervalo = calcularIntervaloDataRapido(tipo);
-            if (!intervalo) return;
-
-            document.getElementById('opDataInicio').value = formatarDataParaInput(intervalo.dataInicio);
-            document.getElementById('opDataFim').value = formatarDataParaInput(intervalo.dataFim);
-            
-            aplicarFiltroOperacional();
-        }
-
-        function aplicarFiltroOperacional() {
-            const inicio = document.getElementById('opDataInicio').value;
-            const fim = document.getElementById('opDataFim').value;
-
-            if (!inicio || !fim) {
-                alert('Por favor, selecione ambas as datas (início e fim)');
-                return;
-            }
-
-            if (inicio > fim) {
-                alert('A data de início não pode ser posterior à data de fim');
-                return;
-            }
-
-            opDataInicio = inicio;
-            opDataFim = fim;
-            
-            atualizarDashboardOperacional();
-        }
-
-        function limparFiltroOperacional() {
-            document.getElementById('opDataInicio').value = '';
-            document.getElementById('opDataFim').value = '';
-            opDataInicio = null;
-            opDataFim = null;
-            atualizarDashboardOperacional();
-        }
+        // O Operacional não tem filtro de origem (só data), por isso usa
+        // criarFiltroDashboard() sem origensAtivas/sufixoDom/idInfoDiv/
+        // idInfoText — antes da v4.22.0 tinha a sua própria cópia de
+        // filtroRapido/aplicarFiltro/limparFiltro, igual à de Gestão e
+        // Qualidade exceto no filtro de origem que não existe aqui
+        const filtroOperacional = criarFiltroDashboard({
+            idDataInicio: 'opDataInicio',
+            idDataFim: 'opDataFim',
+            setDataInicio: (v) => { opDataInicio = v; },
+            setDataFim: (v) => { opDataFim = v; },
+            atualizarDashboard: () => atualizarDashboardOperacional()
+        });
+        ligarFiltroDashboard(filtroOperacional, {
+            filtroRapido: 'filtroRapido',
+            aplicarFiltroOperacional: 'aplicarFiltro',
+            limparFiltroOperacional: 'limparFiltro',
+        });
 
         // Variável global para acesso dos onclick nas barras (v4.7.6)
         window._opRegistosFiltrados = [];
@@ -6596,6 +6576,29 @@
          * @param {(v: string|null) => void} cfg.setDataFim
          * @param {() => void} cfg.atualizarDashboard - recalcula e redesenha o dashboard
          */
+        /**
+         * Fábrica do filtro (data + origem) partilhado pelos 3 dashboards.
+         * Até v4.9.12 filtroRapido()/aplicarFiltro()/limparFiltro() estavam
+         * triplicados de forma quase idêntica; o Operacional continuou a usar
+         * a sua própria cópia (sem filtro de origem) em vez desta fábrica —
+         * corrigido em v4.22.0, ver ligarFiltroDashboard() logo a seguir.
+         * @param {Object} cfg
+         * @param {string} cfg.idDataInicio
+         * @param {string} cfg.idDataFim
+         * @param {function(): void} cfg.atualizarDashboard
+         * @param {function(?string): void} cfg.setDataInicio
+         * @param {function(?string): void} cfg.setDataFim
+         * @param {Set<string>} [cfg.origensAtivas] - omitir num dashboard sem
+         *   filtro de origem (ex.: Operacional); toggleOrigem/
+         *   atualizarBotoesOrigem/atualizarContagemOrigens/
+         *   atualizarMensagemOrigem só funcionam quando presente
+         * @param {string} [cfg.sufixoDom] - sufixo dos IDs dos botões/badges
+         *   de origem no DOM (ex.: 'Qual'), só relevante com origensAtivas
+         * @param {string} [cfg.idInfoDiv]
+         * @param {string} [cfg.idInfoText]
+         * @returns {{filtroRapido, aplicarFiltro, limparFiltro, toggleOrigem,
+         *   atualizarBotoesOrigem, atualizarContagemOrigens, atualizarMensagemOrigem}}
+         */
         function criarFiltroDashboard(cfg) {
             const {
                 idDataInicio, idDataFim, sufixoDom, idInfoDiv, idInfoText,
@@ -6636,10 +6639,14 @@
                 setDataInicio(null);
                 setDataFim(null);
 
-                // Resetar filtro de origem para todas as origens ativas em tOrigem
-                origensAtivas.clear();
-                obterOrigensAtivas().forEach(o => origensAtivas.add(normalizarOrigem(o.Nome)));
-                atualizarBotoesOrigem();
+                // Dashboards sem filtro de origem (ex.: Operacional) não têm
+                // origensAtivas — nada mais a repor além das datas
+                if (origensAtivas) {
+                    // Resetar filtro de origem para todas as origens ativas em tOrigem
+                    origensAtivas.clear();
+                    obterOrigensAtivas().forEach(o => origensAtivas.add(normalizarOrigem(o.Nome)));
+                    atualizarBotoesOrigem();
+                }
 
                 atualizarDashboard();
             }
@@ -6762,6 +6769,24 @@
             };
         }
 
+        /**
+         * Regista, como funções globais, os métodos de um filtro de
+         * dashboard (criarFiltroDashboard) — o HTML usa onclick="nome(...)"
+         * e renderizarBotoesOrigem() atribui onclick dinamicamente por JS,
+         * ambos por nome global fixo, por isso os nomes têm de continuar a
+         * existir. Substitui os ~14 wrappers de uma linha ("function xGestao
+         * (...) { filtroGestao.x(...); }" × 7 para Gestão, outros tantos
+         * para Qualidade) que só reencaminhavam para o objeto devolvido pela
+         * fábrica (v4.22.0).
+         * @param {Object} filtro - objeto devolvido por criarFiltroDashboard()
+         * @param {Object<string,string>} mapa - { nomeGlobal: nomeDoMetodo }
+         */
+        function ligarFiltroDashboard(filtro, mapa) {
+            Object.entries(mapa).forEach(([nomeGlobal, nomeMetodo]) => {
+                window[nomeGlobal] = (...args) => filtro[nomeMetodo](...args);
+            });
+        }
+
         // ==========================================
         // DASHBOARD 2: GESTÃO - FILTROS
         // ==========================================
@@ -6778,17 +6803,18 @@
             atualizarDashboard: () => atualizarDashboardGestao()
         });
 
-        function filtroRapidoGestao(tipo) { filtroGestao.filtroRapido(tipo); }
-        function aplicarFiltroGestao() { filtroGestao.aplicarFiltro(); }
-        function limparFiltroGestao() { filtroGestao.limparFiltro(); }
-
         // ==========================================
         // GESTÃO DE FILTRO DE ORIGEM
         // ==========================================
-        function toggleOrigemGestao(origem) { filtroGestao.toggleOrigem(origem); }
-        function atualizarBotoesOrigem() { filtroGestao.atualizarBotoesOrigem(); }
-        function atualizarContagemOrigens(registosFiltrados = null) { filtroGestao.atualizarContagemOrigens(registosFiltrados); }
-        function atualizarMensagemOrigem() { filtroGestao.atualizarMensagemOrigem(); }
+        ligarFiltroDashboard(filtroGestao, {
+            filtroRapidoGestao: 'filtroRapido',
+            aplicarFiltroGestao: 'aplicarFiltro',
+            limparFiltroGestao: 'limparFiltro',
+            toggleOrigemGestao: 'toggleOrigem',
+            atualizarBotoesOrigem: 'atualizarBotoesOrigem',
+            atualizarContagemOrigens: 'atualizarContagemOrigens',
+            atualizarMensagemOrigem: 'atualizarMensagemOrigem',
+        });
 
         // ==========================================
         // DASHBOARD 2: GESTÃO
@@ -7028,17 +7054,18 @@
             atualizarDashboard: () => atualizarDashboardQualidade()
         });
 
-        function filtroRapidoQualidade(tipo) { filtroQualidade.filtroRapido(tipo); }
-        function aplicarFiltroQualidade() { filtroQualidade.aplicarFiltro(); }
-        function limparFiltroQualidade() { filtroQualidade.limparFiltro(); }
-
         // ==========================================
         // FUNÇÕES DE FILTRO DE ORIGEM - QUALIDADE
         // ==========================================
-        function toggleOrigemQualidade(origem) { filtroQualidade.toggleOrigem(origem); }
-        function atualizarBotoesOrigemQualidade() { filtroQualidade.atualizarBotoesOrigem(); }
-        function atualizarContagemOrigensQualidade(registosFiltrados = null) { filtroQualidade.atualizarContagemOrigens(registosFiltrados); }
-        function atualizarMensagemOrigemQualidade() { filtroQualidade.atualizarMensagemOrigem(); }
+        ligarFiltroDashboard(filtroQualidade, {
+            filtroRapidoQualidade: 'filtroRapido',
+            aplicarFiltroQualidade: 'aplicarFiltro',
+            limparFiltroQualidade: 'limparFiltro',
+            toggleOrigemQualidade: 'toggleOrigem',
+            atualizarBotoesOrigemQualidade: 'atualizarBotoesOrigem',
+            atualizarContagemOrigensQualidade: 'atualizarContagemOrigens',
+            atualizarMensagemOrigemQualidade: 'atualizarMensagemOrigem',
+        });
 
         function isRegistoErroKBPerdido(registo) {
             const tipoErro = registo?.tipoErro || '';

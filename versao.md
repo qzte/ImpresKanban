@@ -4,6 +4,20 @@
 
 ---
 
+## v4.22.0 — 25 Set 2026
+
+### 🧹 Filtros dos dashboards: fábrica partilhada pelos 3
+
+`criarFiltroDashboard()` (introduzida na v4.9.12) unificava a lógica de filtro rápido/aplicar/limpar dos dashboards Gestão e Qualidade, mas o Operacional continuou com a sua própria cópia quase idêntica (sem o filtro de origem, que não tem). Além disso, ligar os métodos da fábrica aos nomes globais que o HTML usa em `onclick="..."` exigia ~14 funções de uma linha só a reencaminhar ("wrappers"), 7 por dashboard.
+
+- **Alterado:** `criarFiltroDashboard()` passa a aceitar `origensAtivas` (e `sufixoDom`/`idInfoDiv`/`idInfoText`) como opcionais — sem eles, só fica disponível o filtro por data (`filtroRapido`/`aplicarFiltro`/`limparFiltro`), sem o filtro de origem
+- **Novo:** `ligarFiltroDashboard(filtro, mapa)` — regista os métodos de um filtro como funções globais a partir de um mapa `{ nomeGlobal: nomeDoMétodo }`, substituindo os wrappers escritos à mão
+- O dashboard **Operacional** passa a usar `criarFiltroDashboard()`, tal como Gestão e Qualidade — deixa de ter a sua própria cópia da lógica de filtro por data
+- **Testes:** novo `e2e/dashboards.e2e.js` cobre os 3 dashboards (filtro rápido, filtro de origem, limpar filtros) — área sem nenhuma cobertura de interface até agora
+- Sem alterações de comportamento para o utilizador
+
+---
+
 ## v4.21.0 — 25 Set 2026
 
 ### 🛡️ Wrapper de localStorage
