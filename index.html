@@ -12,14 +12,54 @@
     <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
     <link rel="apple-touch-icon" href="icon-192.png">
     <meta name="theme-color" content="#0066CC">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
-    <!-- Bibliotecas para geração de PDF -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js" integrity="sha384-vuyrTV5nkscLp1knFvt+FIHfKKzmROBq5reruhMRslauj54mW+l2B8b6szMN6lCL" crossorigin="anonymous"></script>
+    <!-- xlsx.js (Excel) e jsPDF+autotable (Relatórios) deixaram de ser
+         carregados aqui de forma estática (v4.17.0): são scripts CDN pesados
+         (xlsx.full.min.js > 800KB) usados só nas tabs de Importar/Exportar e
+         Relatórios, mas antes penalizavam o arranque de TODAS as visitas.
+         Agora são injetados dinamicamente sob demanda por
+         carregarScriptExterno()/garantirBibliotecaExcel()/garantirBibliotecaPDF()
+         (ver <script> principal). O Service Worker continua a pré-cachear
+         estes URLs (sw.js), por isso o carregamento diferido continua a
+         funcionar offline após a primeira visita. -->
+    <script>
+        window.CDN_LIBS = {
+            xlsx: {
+                src: 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+                integrity: 'sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw'
+            },
+            jspdf: {
+                src: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+                integrity: 'sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk'
+            },
+            jspdfAutotable: {
+                src: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js',
+                integrity: 'sha384-vuyrTV5nkscLp1knFvt+FIHfKKzmROBq5reruhMRslauj54mW+l2B8b6szMN6lCL'
+            }
+        };
+    </script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.16.1 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.17.0 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
+
+           VERSÃO 4.17.0 - Revisão de código: performance, testes e robustez (25 Set 2026)
+           ------------------------------------------------
+           ⚡ xlsx.js/jsPDF/autotable deixam de carregar estaticamente no
+              <head> — são injetados sob demanda (carregarScriptExterno())
+              só quando a tab de Importar/Exportar ou Relatórios é usada;
+              o Service Worker continua a pré-cachear os URLs, por isso
+              continua a funcionar offline
+           ⚡ Pesquisa em tempo real (com debounce de 250ms) nos campos de
+              texto do filtro do Histórico (Serviço/Artigo)
+           🧪 Novos testes unitários (encontrarServico/Artigo/Erro,
+              mergeReferencia, isRegistoErroKBPerdido) — ver
+              test/pure-functions.test.js
+           🔒 Limite de 20MB na importação de ficheiros Excel
+           🔒 carregarReferencias() valida que cada tabela lida do
+              localStorage é de facto um array, tal como carregarDados()
+              já fazia — protege contra dados corrompidos por quota excedida
+           ♿ aria-label em botões de ação que só tinham um emoji
+              (remover linha, eliminar registo, fechar modal)
 
            VERSÃO 4.16.1 - Filtro Tipo de Erro no Histórico (18 Set 2026)
            ------------------------------------------------
@@ -2961,7 +3001,7 @@
                     <button class="btn btn-success" onclick="exportarModalDetalheExcel()" style="background: var(--accent-success); color: white; padding: 0.5rem 1rem; font-size: 0.8125rem;">
                         📤 Exportar Excel
                     </button>
-                    <button class="btn-close" onclick="fecharModalDetalhe()" style="font-size: 1.5rem;">✕</button>
+                    <button class="btn-close" onclick="fecharModalDetalhe()" style="font-size: 1.5rem;" title="Fechar" aria-label="Fechar">✕</button>
                 </div>
             </div>
             <div class="modal-detalhe-stats" id="modalDetalheStats"></div>
@@ -3297,7 +3337,7 @@
                     <small style="display: block; min-height: 1.2em; margin-top: 0.25rem;">&nbsp;</small>
                 </div>
                 <div style="margin-top: 1.75rem;">
-                    <button type="button" onclick="removerLinhaArtigo('${id}')" style="background: var(--accent-danger); color: white; border: none; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); cursor: pointer; font-size: 1.25rem; height: 38px;" title="Remover">
+                    <button type="button" onclick="removerLinhaArtigo('${id}')" style="background: var(--accent-danger); color: white; border: none; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); cursor: pointer; font-size: 1.25rem; height: 38px;" title="Remover" aria-label="Remover linha">
                         🗑️
                     </button>
                 </div>
@@ -3673,7 +3713,7 @@
                     <small style="display: block; min-height: 1.2em; margin-top: 0.25rem;">&nbsp;</small>
                 </div>
                 <div style="margin-top: 1.75rem;">
-                    <button type="button" onclick="removerLinhaServico('${id}')" style="background: var(--accent-danger); color: white; border: none; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); cursor: pointer; font-size: 1.25rem; height: 38px;" title="Remover">
+                    <button type="button" onclick="removerLinhaServico('${id}')" style="background: var(--accent-danger); color: white; border: none; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); cursor: pointer; font-size: 1.25rem; height: 38px;" title="Remover" aria-label="Remover linha">
                         🗑️
                     </button>
                 </div>
@@ -4172,22 +4212,86 @@
         // IMPORTAR / EXPORTAR DADOS (EXCEL)
         // ==========================================
 
+        // Injeta um <script> de CDN em runtime e resolve quando carregar
+        // (v4.17.0 — carregamento diferido de xlsx.js/jsPDF, ver <head>).
+        // Reutiliza a promise em chamadas repetidas: não injeta o mesmo
+        // <script> duas vezes.
+        const _scriptsExternosCarregados = {};
+        function carregarScriptExterno(src, integrity) {
+            if (_scriptsExternosCarregados[src]) return _scriptsExternosCarregados[src];
+            _scriptsExternosCarregados[src] = new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                if (integrity) {
+                    script.integrity = integrity;
+                    script.crossOrigin = 'anonymous';
+                }
+                script.onload = () => resolve();
+                script.onerror = () => reject(new Error(`Falha ao carregar ${src}`));
+                document.head.appendChild(script);
+            });
+            return _scriptsExternosCarregados[src];
+        }
+
+        // Limite defensivo para ficheiros .xlsx/.xls importados. Sem isto, um
+        // ficheiro corrompido/enorme era lido inteiro para memória
+        // (reader.readAsArrayBuffer) antes de qualquer try/catch do parsing
+        // sequer correr, podendo consumir memória excessiva e travar a aba.
+        const TAMANHO_MAX_FICHEIRO_EXCEL = 20 * 1024 * 1024; // 20MB
+
+        function validarTamanhoFicheiroExcel(file, exibirAlerta = mostrarAlerta) {
+            if (file.size <= TAMANHO_MAX_FICHEIRO_EXCEL) return true;
+            const tamanhoMB = (file.size / (1024 * 1024)).toFixed(1);
+            exibirAlerta(`❌ Ficheiro demasiado grande (${tamanhoMB}MB). O limite é ${TAMANHO_MAX_FICHEIRO_EXCEL / (1024 * 1024)}MB.`, 'warning');
+            return false;
+        }
+
         /**
-         * A biblioteca xlsx.js vem de CDN. Sem ligação na primeira visita (ou
-         * com a CDN bloqueada pela rede da empresa) fica indefinida e as
-         * operações de Excel falhavam com "XLSX is not defined" (v4.11.2).
-         * @returns {boolean} true se a biblioteca está disponível
+         * A biblioteca xlsx.js vem de CDN, carregada sob demanda (v4.17.0).
+         * Sem ligação na primeira visita (ou com a CDN bloqueada pela rede da
+         * empresa) fica indisponível e as operações de Excel falhavam com
+         * "XLSX is not defined" (v4.11.2).
+         * @returns {Promise<boolean>} true se a biblioteca está disponível
          */
-        function verificarBibliotecaExcel() {
+        async function verificarBibliotecaExcel() {
             if (typeof XLSX !== 'undefined') return true;
+            try {
+                await carregarScriptExterno(window.CDN_LIBS.xlsx.src, window.CDN_LIBS.xlsx.integrity);
+                if (typeof XLSX !== 'undefined') return true;
+            } catch (e) {
+                console.error('❌ Erro ao carregar xlsx.js:', e);
+            }
             mostrarAlerta('❌ Biblioteca de Excel indisponível.\n\nAbra a aplicação uma vez com ligação à internet para a guardar em cache; depois passa a funcionar offline.', 'warning');
             return false;
         }
 
-        function importarDados(event) {
+        /**
+         * jsPDF + autotable, carregados sob demanda (v4.17.0).
+         * @returns {Promise<boolean>} true se ambas as bibliotecas estão disponíveis
+         */
+        async function garantirBibliotecaPDF() {
+            if (typeof window.jspdf !== 'undefined' && typeof window.jspdf.jsPDF.prototype.autoTable === 'function') {
+                return true;
+            }
+            try {
+                if (typeof window.jspdf === 'undefined') {
+                    await carregarScriptExterno(window.CDN_LIBS.jspdf.src, window.CDN_LIBS.jspdf.integrity);
+                }
+                if (typeof window.jspdf?.jsPDF?.prototype?.autoTable !== 'function') {
+                    await carregarScriptExterno(window.CDN_LIBS.jspdfAutotable.src, window.CDN_LIBS.jspdfAutotable.integrity);
+                }
+                return typeof window.jspdf !== 'undefined';
+            } catch (e) {
+                console.error('❌ Erro ao carregar jsPDF/autotable:', e);
+                return false;
+            }
+        }
+
+        async function importarDados(event) {
             const file = event.target.files[0];
             if (!file) return;
-            if (!verificarBibliotecaExcel()) { event.target.value = ''; return; }
+            if (!validarTamanhoFicheiroExcel(file)) { event.target.value = ''; return; }
+            if (!(await verificarBibliotecaExcel())) { event.target.value = ''; return; }
 
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -4262,12 +4366,12 @@
             event.target.value = '';
         }
 
-        function exportarDados() {
+        async function exportarDados() {
             if (registos.length === 0) {
                 mostrarAlerta('⚠️ Não há dados para exportar', 'warning');
                 return;
             }
-            if (!verificarBibliotecaExcel()) return;
+            if (!(await verificarBibliotecaExcel())) return;
             try {
                 const wb = XLSX.utils.book_new();
                 const dadosExport = registos.map(r => {
@@ -4510,9 +4614,17 @@
         }
 
         // Funções de Referência
-        function carregarReferencia(event) {
+        async function carregarReferencia(event) {
             const file = event.target.files[0];
             if (!file) return;
+            if (!validarTamanhoFicheiroExcel(file, mostrarAlertaReferencia)) { event.target.value = ''; return; }
+            if (typeof XLSX === 'undefined') {
+                try {
+                    await carregarScriptExterno(window.CDN_LIBS.xlsx.src, window.CDN_LIBS.xlsx.integrity);
+                } catch (e) {
+                    console.error('❌ Erro ao carregar xlsx.js:', e);
+                }
+            }
             if (typeof XLSX === 'undefined') {
                 mostrarAlertaReferencia('❌ Biblioteca de Excel indisponível.\n\nAbra a aplicação uma vez com ligação à internet para a guardar em cache; depois passa a funcionar offline.', 'warning');
                 event.target.value = '';
@@ -4777,11 +4889,25 @@
                 const erros = localStorage.getItem(STORAGE_REF_ERROS);
                 const origem = localStorage.getItem(STORAGE_REF_ORIGEM);  // NOVO: Carregar origens
                 
-                if (artigos) tArtigo = JSON.parse(artigos);
-                if (servicos) tServicos = JSON.parse(servicos);
-                if (utilizadores) tUtilizadores = JSON.parse(utilizadores);
+                // Cada tabela pode ter ficado corrompida por uma gravação
+                // interrompida a meio (quota excedida) — um JSON válido mas
+                // que não é um array (ex.: objeto/string) faria as chamadas
+                // .length/.find()/.map() seguintes lançar excepção e travar
+                // o arranque da app. Mesma proteção já usada em carregarDados().
+                const paraArrayOuVazio = (json, nomeTabela) => {
+                    const valor = JSON.parse(json);
+                    if (!Array.isArray(valor)) {
+                        console.warn(`⚠️ ${nomeTabela} no localStorage não é uma lista — a ignorar e a usar tabela vazia.`);
+                        return [];
+                    }
+                    return valor;
+                };
+
+                if (artigos) tArtigo = paraArrayOuVazio(artigos, 'T_Artigo');
+                if (servicos) tServicos = paraArrayOuVazio(servicos, 'T_Serviços');
+                if (utilizadores) tUtilizadores = paraArrayOuVazio(utilizadores, 'T_Utilizadores');
                 if (erros) {
-                    tErros = JSON.parse(erros);
+                    tErros = paraArrayOuVazio(erros, 'T_Erros');
                     console.log('✅ T_Erros carregada do localStorage:', tErros.length, 'erros');
                     if (tErros.length > 0) {
                         console.log('Primeiro erro:', tErros[0]);
@@ -4790,10 +4916,10 @@
                     tErros = [];
                     console.log('⚠️ T_Erros não encontrada no localStorage');
                 }
-                
+
                 // NOVO: Carregar origens
                 if (origem) {
-                    tOrigem = JSON.parse(origem);
+                    tOrigem = paraArrayOuVazio(origem, 'T_Origem');
                     console.log('✅ T_Origem carregada do localStorage:', tOrigem.length, 'origens');
                 } else {
                     // Valores padrão se não houver ficheiro de referência
@@ -7799,9 +7925,34 @@
             // Popular filtro de origem se ainda não foi
             popularFiltroOrigemHistorico();
             popularFiltroTipoErroHistorico();
-            
+
             // Aplicar filtros (se houver)
             aplicarFiltrosHistorico();
+
+            // Pesquisa em tempo real nos campos de texto (Serviço/Artigo), com
+            // debounce para não reconstruir a tabela a cada tecla premida
+            setupFiltrosHistoricoLiveSearch();
+        }
+
+        // Evita reconstruir a tabela a cada tecla premida nos filtros de texto
+        // do Histórico — só filtra `delay` ms depois da última tecla
+        function debounce(fn, delay = 250) {
+            let timer = null;
+            return function(...args) {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn.apply(this, args), delay);
+            };
+        }
+
+        let _filtrosHistoricoLiveSearchConfigurado = false;
+        function setupFiltrosHistoricoLiveSearch() {
+            if (_filtrosHistoricoLiveSearchConfigurado) return;
+            const aplicarComDebounce = debounce(aplicarFiltrosHistorico, 250);
+            ['histServico', 'histArtigo'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('input', aplicarComDebounce);
+            });
+            _filtrosHistoricoLiveSearchConfigurado = true;
         }
 
         /**
@@ -7898,7 +8049,7 @@
                             <button class="btn btn-sm btn-acao-editar" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; margin-right: 0.25rem;">
                                 ✏️ Editar
                             </button>
-                            <button class="btn btn-sm btn-acao-eliminar" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; background: var(--accent-error);">
+                            <button class="btn btn-sm btn-acao-eliminar" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; background: var(--accent-error);" title="Eliminar registo" aria-label="Eliminar registo">
                                 🗑️
                             </button>
                         </td>
@@ -8166,17 +8317,17 @@
                 // Mostrar mensagem de progresso
                 mostrarAlerta('⏳ A gerar relatório executivo PDF... Aguarde...', 'info');
                 
-                // Verificar se jsPDF está disponível
-                if (typeof window.jspdf === 'undefined') {
-                    console.error('❌ Biblioteca jsPDF não carregada!');
+                // Carregar jsPDF/autotable sob demanda, se ainda não estiverem disponíveis
+                if (!(await garantirBibliotecaPDF())) {
+                    console.error('❌ Biblioteca jsPDF não disponível!');
                     mostrarAlerta(
-                        '❌ Erro: Biblioteca PDF não carregada<br><br>' +
-                        'Por favor, recarregue a página e tente novamente.',
+                        '❌ Erro: Biblioteca PDF indisponível<br><br>' +
+                        'Abra a aplicação uma vez com ligação à internet para a guardar em cache; depois passa a funcionar offline.',
                         'error'
                     );
                     return;
                 }
-                
+
                 console.log('✅ Biblioteca jsPDF carregada');
                 
                 // Criar PDF
@@ -8983,13 +9134,13 @@
          * Exporta para Excel os registos atualmente mostrados no modal de detalhe
          * (ex.: os registos de um tipo de erro específico, de um dia, de uma hora, etc.).
          */
-        function exportarModalDetalheExcel() {
+        async function exportarModalDetalheExcel() {
             const registosParaExportar = window._modalDetalheRegistos || [];
             if (registosParaExportar.length === 0) {
                 mostrarAlerta('⚠️ Não há dados para exportar', 'warning');
                 return;
             }
-            if (!verificarBibliotecaExcel()) return;
+            if (!(await verificarBibliotecaExcel())) return;
             try {
                 const wb = XLSX.utils.book_new();
                 const dadosExport = registosParaExportar.map(r => {

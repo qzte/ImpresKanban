@@ -4,6 +4,33 @@
 
 ---
 
+## v4.17.0 — 25 Set 2026
+
+### ⚡ Revisão de código: performance, testes e robustez
+
+Resultado de uma revisão de código orientada a custo/benefício (segurança, arquitetura e performance). Sem alterações de comportamento visíveis para o utilizador, exceto onde indicado.
+
+- **Performance:** `xlsx.js`, `jsPDF` e `jspdf-autotable` deixam de ser carregados de forma estática no `<head>` — são bibliotecas pesadas (xlsx.js sozinha tem mais de 800KB) usadas apenas nas tabs de Importar/Exportar e Relatórios, mas até agora penalizavam o arranque de **todas** as visitas. Passam a ser injetadas dinamicamente (`carregarScriptExterno()`) só quando são efetivamente necessárias. O Service Worker continua a pré-cachear estes URLs (`sw.js`), por isso o carregamento diferido continua a funcionar offline após a primeira visita
+- **UX:** pesquisa em tempo real (com debounce de 250ms) nos campos de texto "Serviço" e "Artigo" do filtro do Histórico — já não é preciso clicar em "Pesquisar" a cada alteração
+- **Testes:** novos testes unitários para `encontrarServico`, `encontrarArtigo`, `encontrarErro`, `mergeReferencia` e `isRegistoErroKBPerdido` — funções de lógica de negócio até agora sem cobertura (ver `test/pure-functions.test.js`)
+- **Robustez:** `carregarReferencias()` passa a validar que cada tabela lida do `localStorage` é de facto um array (protege contra dados corrompidos por uma gravação interrompida por quota excedida), tal como `carregarDados()` já fazia
+- **Robustez:** limite de 20MB na importação de ficheiros Excel (Registos e Referências), para evitar consumo excessivo de memória com ficheiros corrompidos ou demasiado grandes
+- **Acessibilidade:** `aria-label` nos botões de ação que só tinham um emoji e nenhum texto ou `title` (remover linha em Batch, eliminar registo no Histórico, fechar modal de detalhe)
+
+---
+
+## v4.16.1 — 18 Set 2026
+
+### 🔄 Filtro Tipo de Erro no Histórico
+
+No Histórico de Registos, o filtro por **"ID Tag"** obrigava a saber de memória o identificador exato da tag para encontrar os registos de um determinado tipo de erro — não havia forma de filtrar diretamente por "Tipo de Erro".
+
+- **Alterado:** o filtro "ID Tag" foi substituído por **"Tipo de Erro"**
+- O campo passou de texto livre a **dropdown** (`<select>`), populado a partir de `T_Erros` — mesma abordagem já usada no filtro "Origem"
+- O filtro compara pelo código exato do erro selecionado, em vez de correspondência parcial de texto
+
+---
+
 ## v4.16.0 — 11 Set 2026
 
 ### ✨ Feature: Aviso de nova versão na PWA
