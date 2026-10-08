@@ -450,6 +450,16 @@ describe('dadosPainelKanban (painel e-ink, v4.25.0)', () => {
         assert.deepEqual(v.anoOrigens, [{ nome: 'Rutura', n: 9 }, { nome: 'Pedido', n: 1 }]);
         assert.deepEqual(v.anoErros, [{ tipo: 'Novo artigo', n: 6 }, { tipo: 'KB Perdido', n: 4 }]);
     });
+    test('tipo de erro com a descrição (T_Erros), ou o código se não houver (v4.27.0)', () => {
+        const l4 = [
+            { data: '2026-10-08', qtdKanbans: 2, tipoErro: 'E01' },
+            { data: '2026-10-08', qtdKanbans: 3, tipoErro: 'E01' },
+            { data: '2026-10-07', qtdKanbans: 1, tipoErro: 'E99' },
+        ];
+        const v = JSON.parse(JSON.stringify(dadosPainelKanban(l4, agora, c => ({ E01: 'KB Perdido' })[c])));
+        assert.deepEqual(v.erros, [{ tipo: 'KB Perdido', n: 5 }, { tipo: 'E99', n: 1 }]);
+        assert.deepEqual(v.anoErros, v.erros);
+    });
     test('sem registos: zeros, último a null', () => {
         const v = JSON.parse(JSON.stringify(dadosPainelKanban([], agora)));
         assert.equal(v.hoje + v.semana + v.mes + v.registosMes, 0);

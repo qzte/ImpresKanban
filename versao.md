@@ -4,6 +4,16 @@
 
 ---
 
+## v4.27.0 — 8 Out 2026
+
+### 📟 Painel e-ink: tipo de erro com a descrição
+
+`erros` e `anoErros` do `impreskanban.painel.json` passam a levar a **descrição** do tipo de erro (da T_Erros) em vez do código. Se o código não estiver na T_Erros, fica o código. O formato do ficheiro não muda.
+
+- **Testes:** caso novo de `dadosPainelKanban` em `test/pure-functions.test.js`
+
+---
+
 ## v4.26.0 — 8 Out 2026
 
 ### 📟 Painel e-ink: Mês corrente e Ano corrente
