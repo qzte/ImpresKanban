@@ -2687,7 +2687,7 @@
                 O painel e-ink (a app <b>painel.html</b>, do repositório qzte/e-ink_panel) mostra uma página com os kanbans
                 impressos: hoje, nos últimos 7 dias e no mês, por dia, por tipo de erro e por serviço. Esta app grava o ficheiro
                 <b>impreskanban.painel.json</b> numa <b>pasta partilhada</b> — a mesma das outras apps e do painel.html —,
-                escolhida uma vez, e volta a gravá-lo sempre que os registos mudam. Só no Chrome ou no Edge de computador.
+                escolhida uma vez, e volta a gravá-lo sempre que os registos mudam e, todos os dias úteis às 12h, mesmo sem alterações (com a app aberta). Só no Chrome ou no Edge de computador.
             </p>
             <div class="button-group">
                 <button class="btn btn-secondary" id="btnPainel" type="button">Escolher pasta</button>
@@ -6102,8 +6102,9 @@
               mudar(suportado ? 'sem' : 'indisponivel');
             },
             /** Os dados mudaram: escreve-os (já, se houver pasta com licença; senão, quando houver). */
-            async escrever(dados) {
+            async escrever(dados, forcar = false) {
               pendentes = dados;
+              if (forcar) ultimoTexto = '';      // regrava mesmo que os dados sejam iguais
               if (estado === 'ok') await despejar();
             },
           };
@@ -6202,6 +6203,20 @@
             painelEink.iniciar().then(() => painelEink.escrever(dadosPainelKanban(registos, new Date())));
             // «Hoje» e «7 dias» mudam com o dia, mesmo sem registos novos.
             setInterval(() => painelEink.escrever(dadosPainelKanban(registos, new Date())), 10 * 60 * 1000);
+            // Envio diário às 12h nos dias úteis (com a app aberta; se for aberta depois das 12h, envia nessa altura).
+            setInterval(envioDiarioPainel, 60 * 1000);
+            envioDiarioPainel();
+        }
+        const CHAVE_ENVIO_PAINEL = 'impreskanban.painel.ultimoEnvio';
+        function envioDiarioPainel() {
+            const agora = new Date();
+            const dia = agora.getDay();
+            if (dia === 0 || dia === 6 || agora.getHours() < 12) return;
+            if (painelEink.info().estado !== 'ok') return;   // sem pasta/licença: tenta no minuto seguinte
+            const hoje = `${agora.getFullYear()}-${agora.getMonth() + 1}-${agora.getDate()}`;
+            try { if (localStorage.getItem(CHAVE_ENVIO_PAINEL) === hoje) return; } catch (e) { /* sem storage: envia na mesma */ }
+            try { localStorage.setItem(CHAVE_ENVIO_PAINEL, hoje); } catch (e) { /* ignora */ }
+            painelEink.escrever(dadosPainelKanban(registos, agora), true);
         }
 
         // Descarta entradas que não são sequer um registo plausível (fragmento
