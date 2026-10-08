@@ -433,6 +433,23 @@ describe('dadosPainelKanban (painel e-ink, v4.25.0)', () => {
         assert.equal(v.taxaIdTags, 0.333);
         assert.deepEqual(v.servicosHoje.map(x => x.nome).sort(), ['Padaria', 'Talho']);
     });
+    test('mês e ano corrente: produção diária, origens e tipos de erro (v4.26.0)', () => {
+        const l3 = [
+            { data: '2026-10-08', qtdKanbans: 3, origem: 'Rutura', tipoErro: 'KB Perdido' },
+            { data: '2026-10-31', qtdKanbans: 1, origem: 'Pedido', tipoErro: 'KB Perdido' },
+            { data: '2026-03-15', qtdKanbans: 6, origem: 'Rutura', tipoErro: 'Novo artigo' },
+            { data: '2025-12-31', qtdKanbans: 50, origem: 'Rutura', tipoErro: 'X' },
+        ];
+        const v = JSON.parse(JSON.stringify(dadosPainelKanban(l3, agora)));
+        assert.equal(v.mesPorDia.length, 31);
+        assert.deepEqual(v.mesPorDia[7], { data: '2026-10-08', n: 3 });
+        assert.equal(v.mesPorDia.reduce((t, x) => t + x.n, 0), 4);
+        assert.equal(v.ano, 10);
+        assert.equal(v.anoPorDia.length, 365);
+        assert.deepEqual(v.anoPorDia.find(x => x.data === '2026-03-15'), { data: '2026-03-15', n: 6 });
+        assert.deepEqual(v.anoOrigens, [{ nome: 'Rutura', n: 9 }, { nome: 'Pedido', n: 1 }]);
+        assert.deepEqual(v.anoErros, [{ tipo: 'Novo artigo', n: 6 }, { tipo: 'KB Perdido', n: 4 }]);
+    });
     test('sem registos: zeros, último a null', () => {
         const v = JSON.parse(JSON.stringify(dadosPainelKanban([], agora)));
         assert.equal(v.hoje + v.semana + v.mes + v.registosMes, 0);

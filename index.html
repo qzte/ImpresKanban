@@ -75,7 +75,7 @@
     </script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.25.0 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.26.0 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
 
            Histórico de versões: versao.md (o changelog que estava aqui
@@ -6145,6 +6145,17 @@
             const ultimo = validos.reduce((u, r) => (r.data > u ? r.data : u), '') || null;
             const ultimoRegisto = validos.reduce((u, r) => (r.timestamp && r.timestamp > u ? r.timestamp : u), '') || null;
             const comTag = doMes.filter(r => String(r.idTag || '').trim()).length;
+            // v4.26.0: páginas «Mês corrente» e «Ano corrente» — produção diária (todos os dias, com zeros),
+            // origens e tipos de erro. (`origens`/`erros` mantêm-se: são os do mês.)
+            const ano = hoje.slice(0, 4);
+            const doAno = validos.filter(r => r.data.slice(0, 4) === ano);
+            const diasDoPeriodo = (a, m) => { // m: 0-11, ou null para o ano inteiro
+                const ini = new Date(a, m === null ? 0 : m, 1), fim = m === null ? new Date(a + 1, 0, 1) : new Date(a, m + 1, 1);
+                const out = [];
+                for (let d = ini; d < fim; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) out.push(dia(d));
+                return out;
+            };
+            const serie = (l, dias) => { const m = new Map(porChave(l, r => r.data)); return dias.map(d => ({ data: d, n: m.get(d) || 0 })); };
             const dias = (a, b) => Math.round((new Date(a + 'T12:00:00') - new Date(b + 'T12:00:00')) / 86400000);
             return {
                 hoje: soma(doDia),
@@ -6167,7 +6178,12 @@
                 servicos: porChave(doMes, r => r.servico || r.servicoId).map(([nome, n]) => ({ nome, n })),
                 servicosHoje: porChave(doDia, r => r.servico || r.servicoId).map(([nome, n]) => ({ nome, n })),
                 artigos: porChave(doMes, r => r.artigoDescricao || r.artigo).map(([nome, n]) => ({ nome, n })),
-                origens: porChave(doMes, r => r.origem).map(([nome, n]) => ({ nome, n }))
+                origens: porChave(doMes, r => r.origem).map(([nome, n]) => ({ nome, n })),
+                mesPorDia: serie(doMes, diasDoPeriodo(agora.getFullYear(), agora.getMonth())),
+                ano: soma(doAno),
+                anoPorDia: serie(doAno, diasDoPeriodo(agora.getFullYear(), null)),
+                anoOrigens: porChave(doAno, r => r.origem).map(([nome, n]) => ({ nome, n })),
+                anoErros: porChave(doAno, r => r.tipoErro).map(([tipo, n]) => ({ tipo, n }))
             };
         }
 
