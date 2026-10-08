@@ -4,6 +4,19 @@
 
 ---
 
+## v4.24.0 — 8 Out 2026
+
+### 📟 Painel e-ink
+
+O painel e-ink passou a ser uma app à parte (repositório qzte/e-ink_panel, `painel.html`) que lê os ficheiros que as apps gravam numa **pasta partilhada** e mostra uma página por app.
+
+- **Novo:** em **💾 Gestão dos Dados → 📟 Painel e-ink** escolhe-se a pasta (uma vez; fica lembrada neste browser). A app grava lá `impreskanban.painel.json` com o resumo dos registos — kanbans impressos hoje, nos últimos 7 dias e no mês, por dia (14 dias), por tipo de erro e por serviço (no mês) — ~2 s depois de cada gravação e de 10 em 10 minutos (os totais de «hoje» e «7 dias» mudam com o dia); não regrava se nada mudou
+- Ao reabrir a app, o browser pode pedir licença outra vez: «Dar acesso à pasta». Só no Chrome/Edge de computador (File System Access); nos outros browsers o cartão diz-o e o resto da app fica igual
+- A escrita fica limitada à pasta escolhida e a um ficheiro de nome fixo; o ficheiro tem contagens por dia, tipo de erro e serviço — sem nomes de utilizadores, artigos nem observações
+- **Testes:** `dadosPainelKanban` em `test/pure-functions.test.js`; `e2e/painel.e2e.js` (escolher a pasta grava o ficheiro no formato do painel; um registo novo volta a gravá-lo)
+
+---
+
 ## v4.23.0 — 25 Set 2026
 
 ### 🗄️ Migração de localStorage para IndexedDB

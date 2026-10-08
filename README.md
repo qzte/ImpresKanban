@@ -2,7 +2,7 @@
 
 > Ferramenta web **100% offline** para controlo e análise de Kanban e gestão de KPI para equipas de manutenção de supermercados.
 
-**Versão atual:** 4.23.0 — servida como `index.html`
+**Versão atual:** 4.24.0 — servida como `index.html`
 
 ---
 
@@ -49,6 +49,15 @@ Esta aplicação web permite analisar o trabalho de manutenção do sistema de d
 | **📊 Dashboards** | Análise gráfica e estatística — Operacional, Gestão, Qualidade |
 | **📄 Relatórios** | Geração de briefings executivos em PDF (mensal e anual) |
 | **💾 Gestão dos Dados** | Carregar ficheiro de referência, importar/exportar, backups |
+
+### 📟 Painel e-ink
+
+O painel e-ink de 7.5″ (a app `painel.html` do repositório [qzte/e-ink_panel](https://github.com/qzte/e-ink_panel)) mostra
+uma página com os kanbans impressos: hoje, nos últimos 7 dias e no mês, por dia (14 dias), por tipo de erro e por serviço.
+Em **💾 Gestão dos Dados → 📟 Painel e-ink** escolhe-se uma **pasta partilhada** — a mesma das outras apps e do
+`painel.html` —, uma vez; a app grava lá `impreskanban.painel.json` sempre que os registos mudam. Ao reabrir a app o
+browser pode pedir licença outra vez («Dar acesso à pasta»). Só no Chrome ou no Edge de computador. O formato está em
+`docs/09-formato-feed.md` do qzte/e-ink_panel; o resumo é calculado aqui (`dadosPainelKanban`).
 
 ---
 
@@ -213,6 +222,7 @@ Consulte o ficheiro [`versao.md`](./versao.md) para o histórico completo.
 
 | Versão | Data | Destaque |
 |---|---|---|
+| **4.24.0** | 8 Out 2026 | 📟 Painel e-ink: grava `impreskanban.painel.json` numa pasta partilhada |
 | **4.23.0** | 25 Set 2026 | 🗄️ Migração de localStorage para IndexedDB |
 | 4.22.0 | 25 Set 2026 | 🧹 Filtros dos dashboards: fábrica partilhada pelos 3 |
 | 4.21.0 | 25 Set 2026 | 🛡️ Wrapper de localStorage |

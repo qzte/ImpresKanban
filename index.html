@@ -75,7 +75,7 @@
     </script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.23.0 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.24.0 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
 
            Histórico de versões: versao.md (o changelog que estava aqui
@@ -2677,6 +2677,24 @@
             </div>
         </div>
 
+        <!-- Painel e-ink (v4.24.0) -->
+        <div class="card" id="painelCard">
+            <div class="card-header">
+                <span class="card-icon">📟</span>
+                <h2 class="card-title">Painel e-ink</h2>
+            </div>
+            <p style="font-size: 0.9rem; color: var(--text-muted); margin: 0 0 var(--space-md) 0;">
+                O painel e-ink (a app <b>painel.html</b>, do repositório qzte/e-ink_panel) mostra uma página com os kanbans
+                impressos: hoje, nos últimos 7 dias e no mês, por dia, por tipo de erro e por serviço. Esta app grava o ficheiro
+                <b>impreskanban.painel.json</b> numa <b>pasta partilhada</b> — a mesma das outras apps e do painel.html —,
+                escolhida uma vez, e volta a gravá-lo sempre que os registos mudam. Só no Chrome ou no Edge de computador.
+            </p>
+            <div class="button-group">
+                <button class="btn btn-secondary" id="btnPainel" type="button">Escolher pasta</button>
+            </div>
+            <div id="painelEstado" role="status" style="font-size: 0.85rem; color: var(--text-muted); margin-top: var(--space-md);"></div>
+        </div>
+
         </div>
                 <!-- FIM Tab 4: Gestão dos Dados -->
         <footer>
@@ -3975,6 +3993,9 @@
             // atualizarIndicadorTabGestao() (abaixo) dependem
             await carregarDados();
             await carregarReferencias();
+
+            // Painel e-ink (v4.24.0): com os registos já carregados, retoma a pasta lembrada e grava o resumo
+            ligarPainelEink();
 
             // Verificar se é dia de backup semanal (v4.9.1)
             // Pequeno delay para garantir que registos já estão carregados
@@ -5952,7 +5973,203 @@
             // Best-effort: nunca lida (só diagnóstico), a falhar não deve
             // fazer parecer que os registos acima não foram gravados
             await storageSet(STORAGE_KEY + '_version', APP_VERSION);
+            agendarPainel();   // v4.24.0: o resumo do painel e-ink acompanha os registos
             return true;
+        }
+
+        // ── Painel e-ink (v4.24.0) ─────────────────────────────────────────
+        // O painel e-ink é uma app à parte (qzte/e-ink_panel, painel.html) que lê os
+        // ficheiros que as apps gravam numa pasta partilhada. Esta grava
+        // impreskanban.painel.json com o resumo dos registos (dadosPainelKanban).
+        // Contrato: docs/09-formato-feed.md lá; o escritor abaixo é uma cópia do de lá.
+        // ─────────────────────────────────────────────────────────────────────────────
+        // ESCRITOR DO FICHEIRO PARA O PAINEL E-INK («painel-feed» v1)
+        //
+        // Cópia de referência de qzte/e-ink_panel (exemplos/escritor-painel.js). Cada app que alimenta o
+        // painel tem uma cópia deste ficheiro; o contrato está em docs/09-formato-feed.md desse repositório.
+        // Sem dependências e sem framework: serve a apps em React e a apps em JavaScript simples.
+        //
+        //   const painel = criarEscritorPainel({ app: '5s', titulo: 'Auditoria 5S', versaoApp: APP_VERSION });
+        //   painel.subscrever(estado => …);        // 'indisponivel' | 'sem' | 'licenca' | 'ok' | 'erro' — para mostrar na app
+        //   await painel.iniciar();                 // ao abrir a app: lembra-se da pasta escolhida antes
+        //   botão «Escolher pasta» → painel.escolher();   botão «Dar acesso» → painel.darAcesso()   (têm de vir de um clique)
+        //   painel.escrever(dados);                 // sempre que os dados mudam (a app agrupa as mudanças, p. ex. 2 s)
+        //
+        // Grava `<app>.painel.json` na pasta com createWritable(), que só substitui o ficheiro no close() — o
+        // painel nunca lê um ficheiro a meio. Não regrava se os dados forem iguais aos da última escrita.
+        // Se a pasta ainda não tem licença, guarda os dados e escreve-os quando a licença for dada.
+        // ─────────────────────────────────────────────────────────────────────────────
+
+        function criarEscritorPainel({ app, titulo, versaoApp = '' }) {
+          if (!/^[a-z0-9-]{1,40}$/.test(app)) throw new Error('criarEscritorPainel: «app» inválido');
+          const FICHEIRO = `${app}.painel.json`;
+          const IDB = `painel-feed:${app}`, LOJA = 'kv', CHAVE = 'pasta';
+          const suportado = typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function';
+          let handle = null, estado = suportado ? 'sem' : 'indisponivel', erro = '', escritoEm = null;
+          let pendentes = null, ultimoTexto = '', aEscrever = null;
+          const ouvintes = new Set();
+          const avisar = () => { for (const f of ouvintes) { try { f(info()); } catch (e) { /* um ouvinte não estraga os outros */ } } };
+          const mudar = (novo, msg = '') => { estado = novo; erro = msg; avisar(); };
+          const info = () => ({ estado, erro, pasta: handle?.name || '', ficheiro: FICHEIRO, escritoEm });
+
+          function idb(modo, fn) {
+            return new Promise((resolve, reject) => {
+              const req = indexedDB.open(IDB, 1);
+              req.onupgradeneeded = () => { if (!req.result.objectStoreNames.contains(LOJA)) req.result.createObjectStore(LOJA); };
+              req.onerror = () => reject(req.error);
+              req.onsuccess = () => {
+                const db = req.result;
+                // Um valor que não se deixa guardar (DataCloneError) lança aqui, dentro do evento: sem o try,
+                // a promessa nunca acabava e quem esperava por ela («Escolher pasta») ficava pendurado.
+                try {
+                  const tx = db.transaction(LOJA, modo), r = fn(tx.objectStore(LOJA));
+                  tx.oncomplete = () => { db.close(); resolve(r?.result); };
+                  tx.onerror = tx.onabort = () => { db.close(); reject(tx.error); };
+                } catch (e) { db.close(); reject(e); }
+              };
+            });
+          }
+          const permissao = async (pedir) => {
+            const opc = { mode: 'readwrite' };
+            try {
+              let p = await handle.queryPermission(opc);
+              if (p !== 'granted' && pedir) p = await handle.requestPermission(opc);
+              return p;
+            } catch (e) { return 'denied'; }
+          };
+
+          async function gravar(texto) {
+            const fh = await handle.getFileHandle(FICHEIRO, { create: true });
+            const w = await fh.createWritable();
+            try { await w.write(texto); await w.close(); }
+            catch (e) { try { await w.abort(); } catch (e2) { /* já fechado */ } throw e; }
+          }
+
+          // As escritas vão uma de cada vez; a última pedida é a que fica.
+          async function despejar() {
+            if (aEscrever) return aEscrever;
+            aEscrever = (async () => {
+              while (pendentes && estado === 'ok') {
+                const dados = pendentes; pendentes = null;
+                const corpo = JSON.stringify(dados);
+                if (corpo === ultimoTexto) continue;
+                const texto = JSON.stringify({ formato: 'painel-feed', versao: 1, app, titulo, versaoApp, gerado: new Date().toISOString(), dados });
+                try { await gravar(texto); ultimoTexto = corpo; escritoEm = Date.now(); mudar('ok'); }
+                catch (e) {
+                  pendentes = pendentes || dados;      // tenta outra vez quando a licença voltar
+                  if (await permissao(false) !== 'granted') mudar('licenca');
+                  else mudar('erro', e?.message || String(e));
+                  break;
+                }
+              }
+            })();
+            try { await aEscrever; } finally { aEscrever = null; }
+          }
+
+          return {
+            subscrever(f) { ouvintes.add(f); f(info()); return () => ouvintes.delete(f); },
+            info,
+            /** Ao abrir a app: volta à pasta de antes, se a houver (sem clique, só se a licença ainda valer). */
+            async iniciar() {
+              if (!suportado) return info();
+              try { handle = (await idb('readonly', s => s.get(CHAVE))) || null; } catch (e) { handle = null; }
+              if (!handle) { mudar('sem'); return info(); }
+              mudar(await permissao(false) === 'granted' ? 'ok' : 'licenca');
+              await despejar();
+              return info();
+            },
+            /** Escolher a pasta (de um clique). Devolve false se o utilizador cancelou. */
+            async escolher() {
+              if (!suportado) return false;
+              try { handle = await window.showDirectoryPicker({ id: 'painel-eink', mode: 'readwrite' }); }
+              catch (e) { if (e?.name === 'AbortError') return false; mudar('erro', e?.message || String(e)); return false; }
+              try { await idb('readwrite', s => s.put(handle, CHAVE)); } catch (e) { /* fica só para esta sessão */ }
+              ultimoTexto = '';
+              mudar('ok'); await despejar();
+              return true;
+            },
+            /** Voltar a dar licença à pasta lembrada (de um clique). */
+            async darAcesso() {
+              if (!handle) return false;
+              const ok = await permissao(true) === 'granted';
+              if (ok) { mudar('ok'); await despejar(); }
+              return ok;
+            },
+            /** Deixar de escrever para o painel (esquece a pasta). */
+            async esquecer() {
+              handle = null; pendentes = null; ultimoTexto = '';
+              try { await idb('readwrite', s => s.delete(CHAVE)); } catch (e) { /* nada a esquecer */ }
+              mudar(suportado ? 'sem' : 'indisponivel');
+            },
+            /** Os dados mudaram: escreve-os (já, se houver pasta com licença; senão, quando houver). */
+            async escrever(dados) {
+              pendentes = dados;
+              if (estado === 'ok') await despejar();
+            },
+          };
+        }
+
+        // Os `dados` do impreskanban.painel.json. Tudo em KANBANS (soma de qtdKanbans), não em
+        // registos, exceto `registosMes`. Datas `AAAA-MM-DD` locais; `agora` é a referência.
+        function dadosPainelKanban(lista, agora) {
+            const p2 = n => String(n).padStart(2, '0');
+            const dia = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+            const menos = n => { const d = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() - n); return dia(d); };
+            const hoje = dia(agora), inicioSemana = menos(6), mes = hoje.slice(0, 7);
+            const qtd = r => { const n = Number(r.qtdKanbans); return Number.isFinite(n) && n > 0 ? n : 1; };
+            const validos = (Array.isArray(lista) ? lista : []).filter(r => r && /^\d{4}-\d{2}-\d{2}$/.test(r.data || ''));
+            const soma = l => l.reduce((t, r) => t + qtd(r), 0);
+            const doMes = validos.filter(r => r.data.slice(0, 7) === mes);
+            const porChave = (l, chave) => {
+                const m = new Map();
+                for (const r of l) { const k = String(chave(r) || '').trim() || '(sem valor)'; m.set(k, (m.get(k) || 0) + qtd(r)); }
+                return [...m].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+            };
+            const porDiaMap = new Map(porChave(validos.filter(r => r.data >= menos(13) && r.data <= hoje), r => r.data));
+            return {
+                hoje: soma(validos.filter(r => r.data === hoje)),
+                semana: soma(validos.filter(r => r.data >= inicioSemana && r.data <= hoje)),
+                mes: soma(doMes),
+                registosMes: doMes.length,
+                ultimo: validos.reduce((u, r) => (r.data > u ? r.data : u), '') || null,
+                porDia: Array.from({ length: 14 }, (_, i) => { const d = menos(13 - i); return { data: d, n: porDiaMap.get(d) || 0 }; }),
+                erros: porChave(doMes, r => r.tipoErro).map(([tipo, n]) => ({ tipo, n })),
+                servicos: porChave(doMes, r => r.servico || r.servicoId).map(([nome, n]) => ({ nome, n }))
+            };
+        }
+
+        const painelEink = criarEscritorPainel({ app: 'impreskanban', titulo: 'ImpresKanban', versaoApp: APP_VERSION });
+        let painelTimer = null;
+        // Agrupa gravações seguidas (o registo em batch e a importação gravam várias vezes).
+        function agendarPainel() {
+            clearTimeout(painelTimer);
+            painelTimer = setTimeout(() => painelEink.escrever(dadosPainelKanban(registos, new Date())), 2000);
+        }
+        function mostrarPainel(i) {
+            const btn = document.getElementById('btnPainel'), txt = document.getElementById('painelEstado');
+            if (!btn || !txt) return;
+            const hora = i.escritoEm ? new Date(i.escritoEm).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : '';
+            btn.dataset.estado = i.estado;
+            btn.disabled = i.estado === 'indisponivel';
+            btn.textContent = i.estado === 'licenca' ? 'Dar acesso à pasta' : i.estado === 'ok' ? 'Escolher outra pasta' : 'Escolher pasta';
+            txt.textContent = ({
+                indisponivel: 'Este browser não consegue gravar numa pasta (use o Chrome ou o Edge de computador).',
+                sem: 'Nenhuma pasta escolhida: o painel não recebe os kanbans impressos.',
+                licenca: `O browser pede licença outra vez para gravar na pasta «${i.pasta}» (acontece ao reabrir a app).`,
+                ok: `A gravar ${i.ficheiro} na pasta «${i.pasta}»${hora ? ` — última vez às ${hora}` : ''}.`,
+                erro: `Não foi possível gravar ${i.ficheiro}: ${i.erro}`
+            })[i.estado] || '';
+        }
+        function ligarPainelEink() {
+            painelEink.subscrever(mostrarPainel);
+            const btn = document.getElementById('btnPainel');
+            if (btn) btn.addEventListener('click', () => {
+                const acao = painelEink.info().estado === 'licenca' ? painelEink.darAcesso() : painelEink.escolher();
+                acao.then(() => painelEink.escrever(dadosPainelKanban(registos, new Date())));
+            });
+            painelEink.iniciar().then(() => painelEink.escrever(dadosPainelKanban(registos, new Date())));
+            // «Hoje» e «7 dias» mudam com o dia, mesmo sem registos novos.
+            setInterval(() => painelEink.escrever(dadosPainelKanban(registos, new Date())), 10 * 60 * 1000);
         }
 
         // Descarta entradas que não são sequer um registo plausível (fragmento

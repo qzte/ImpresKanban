@@ -373,3 +373,46 @@ describe('isRegistoErroKBPerdido', () => {
         assert.equal(isRegistoErroKBPerdido(undefined), false);
     });
 });
+
+describe('dadosPainelKanban (painel e-ink, v4.24.0)', () => {
+    // O resumo que vai para o impreskanban.painel.json: kanbans (soma de qtdKanbans), não registos.
+    const { dadosPainelKanban } = carregarFuncoesPuras(['dadosPainelKanban']);
+    const agora = new Date(2026, 9, 8, 10, 0);   // 8 out 2026 (quinta)
+    const r = (data, qtdKanbans, tipoErro, servico) => ({ data, qtdKanbans, tipoErro, servico });
+    const lista = [
+        r('2026-10-08', 3, 'KB Perdido', 'UCIP'),
+        r('2026-10-08', 2, 'KB Danificado', 'UCIP'),
+        r('2026-10-02', 5, 'KB Perdido', 'Pediatria'),     // nos 7 dias (2 a 8)
+        r('2026-10-01', 4, 'KB Perdido', 'Pediatria'),     // no mês, fora dos 7 dias
+        r('2026-09-30', 7, 'Novo artigo', 'UCIP'),         // mês anterior, nos 14 dias
+        r('2026-09-01', 9, 'KB Perdido', 'UCIP'),          // fora de tudo menos `ultimo`
+        r('lixo', 100, 'X', 'Y'),                          // data inválida: ignorado
+        r('2026-10-07', 'abc', 'KB Perdido', ''),          // quantidade inválida conta 1; serviço vazio
+    ];
+    const d = JSON.parse(JSON.stringify(dadosPainelKanban(lista, agora)));
+
+    test('hoje, 7 dias e mês, em kanbans', () => {
+        assert.equal(d.hoje, 5);
+        assert.equal(d.semana, 5 + 5 + 1);
+        assert.equal(d.mes, 5 + 5 + 4 + 1);
+        assert.equal(d.registosMes, 5);
+        assert.equal(d.ultimo, '2026-10-08');
+    });
+    test('14 dias, do mais antigo para hoje, com zeros nos dias sem registos', () => {
+        assert.equal(d.porDia.length, 14);
+        assert.deepEqual(d.porDia[0], { data: '2026-09-25', n: 0 });
+        assert.deepEqual(d.porDia[13], { data: '2026-10-08', n: 5 });
+        assert.equal(d.porDia.find(x => x.data === '2026-09-30').n, 7);
+    });
+    test('tipos de erro e serviços do mês, do maior para o menor', () => {
+        assert.deepEqual(d.erros, [{ tipo: 'KB Perdido', n: 3 + 5 + 4 + 1 }, { tipo: 'KB Danificado', n: 2 }]);
+        assert.deepEqual(d.servicos, [{ nome: 'Pediatria', n: 9 }, { nome: 'UCIP', n: 5 }, { nome: '(sem valor)', n: 1 }]);
+    });
+    test('sem registos: zeros, último a null', () => {
+        const v = JSON.parse(JSON.stringify(dadosPainelKanban([], agora)));
+        assert.equal(v.hoje + v.semana + v.mes + v.registosMes, 0);
+        assert.equal(v.ultimo, null);
+        assert.equal(v.porDia.length, 14);
+        assert.deepEqual([v.erros, v.servicos], [[], []]);
+    });
+});
