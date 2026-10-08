@@ -2,7 +2,7 @@
 
 > Ferramenta web **100% offline** para controlo e análise de Kanban e gestão de KPI para equipas de manutenção de supermercados.
 
-**Versão atual:** 4.26.0 — servida como `index.html`
+**Versão atual:** 4.28.0 — servida como `index.html`
 
 ---
 
@@ -222,6 +222,8 @@ Consulte o ficheiro [`versao.md`](./versao.md) para o histórico completo.
 
 | Versão | Data | Destaque |
 |---|---|---|
+| **4.28.0** | 8 Out 2026 | 📟 Painel e-ink: o ano corrente passa a produção mensal (`anoPorMes`) em vez de diária |
+| **4.27.0** | 8 Out 2026 | 📟 Painel e-ink: o tipo de erro vai com a descrição em vez do código |
 | **4.26.0** | 8 Out 2026 | 📟 Painel e-ink: «Hoje» passa a «Mês corrente» e «Mês» a «Ano corrente» (produção diária, origens, tipos de erro) |
 | **4.25.0** | 8 Out 2026 | 📟 Painel e-ink: o resumo ganha comparações, hora, dia da semana, artigos, origens e ID tags |
 | **4.24.0** | 8 Out 2026 | 📟 Painel e-ink: grava `impreskanban.painel.json` numa pasta partilhada |

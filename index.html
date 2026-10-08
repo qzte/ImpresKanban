@@ -75,7 +75,7 @@
     </script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.26.0 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.28.0 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
 
            Histórico de versões: versao.md (o changelog que estava aqui
@@ -6114,7 +6114,7 @@
         // registos, exceto `registosMes`/`registosHoje`. Datas `AAAA-MM-DD` locais; `agora` é a referência.
         // (v4.25.0: comparações com ontem/semana/mês anterior, hora, dia da semana, artigos, origens,
         // ID tags e dias sem registos — o que o painel mostra do Operacional, Gestão e Qualidade.)
-        function dadosPainelKanban(lista, agora) {
+        function dadosPainelKanban(lista, agora, descricaoErro = () => '') {
             const p2 = n => String(n).padStart(2, '0');
             const dia = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
             const menos = n => { const d = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() - n); return dia(d); };
@@ -6126,6 +6126,8 @@
             const noIntervalo = (a, b) => validos.filter(r => r.data >= a && r.data <= b);
             const doDia = validos.filter(r => r.data === hoje);
             const doMes = validos.filter(r => r.data.slice(0, 7) === mes);
+            // v4.27.0: o tipo de erro vai com a descrição (T_Erros), não com o código; sem descrição fica o código.
+            const erroTexto = r => String(descricaoErro(r.tipoErro) || '').trim() || r.tipoErro;
             const porChave = (l, chave) => {
                 const m = new Map();
                 for (const r of l) { const k = String(chave(r) || '').trim() || '(sem valor)'; m.set(k, (m.get(k) || 0) + qtd(r)); }
@@ -6174,25 +6176,26 @@
                 porHora,
                 porDiaSemana: somaSem.map((t, d) => ({ d, n: Math.round((t / 8) * 10) / 10 })),
                 porDia: Array.from({ length: 14 }, (_, i) => { const d = menos(13 - i); return { data: d, n: porDiaMap.get(d) || 0 }; }),
-                erros: porChave(doMes, r => r.tipoErro).map(([tipo, n]) => ({ tipo, n })),
+                erros: porChave(doMes, erroTexto).map(([tipo, n]) => ({ tipo, n })),
                 servicos: porChave(doMes, r => r.servico || r.servicoId).map(([nome, n]) => ({ nome, n })),
                 servicosHoje: porChave(doDia, r => r.servico || r.servicoId).map(([nome, n]) => ({ nome, n })),
                 artigos: porChave(doMes, r => r.artigoDescricao || r.artigo).map(([nome, n]) => ({ nome, n })),
                 origens: porChave(doMes, r => r.origem).map(([nome, n]) => ({ nome, n })),
                 mesPorDia: serie(doMes, diasDoPeriodo(agora.getFullYear(), agora.getMonth())),
                 ano: soma(doAno),
-                anoPorDia: serie(doAno, diasDoPeriodo(agora.getFullYear(), null)),
+                anoPorMes: Array.from({ length: 12 }, (_, m) => { const k = `${ano}-${p2(m + 1)}`; return { mes: k, n: soma(doAno.filter(r => r.data.slice(0, 7) === k)) }; }),
                 anoOrigens: porChave(doAno, r => r.origem).map(([nome, n]) => ({ nome, n })),
-                anoErros: porChave(doAno, r => r.tipoErro).map(([tipo, n]) => ({ tipo, n }))
+                anoErros: porChave(doAno, erroTexto).map(([tipo, n]) => ({ tipo, n }))
             };
         }
 
+        const descricaoTipoErro = codigo => { const e = encontrarErro(codigo); return e ? (e.Descricao || e.descricao || '') : ''; };
         const painelEink = criarEscritorPainel({ app: 'impreskanban', titulo: 'ImpresKanban', versaoApp: APP_VERSION });
         let painelTimer = null;
         // Agrupa gravações seguidas (o registo em batch e a importação gravam várias vezes).
         function agendarPainel() {
             clearTimeout(painelTimer);
-            painelTimer = setTimeout(() => painelEink.escrever(dadosPainelKanban(registos, new Date())), 2000);
+            painelTimer = setTimeout(() => painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro)), 2000);
         }
         function mostrarPainel(i) {
             const btn = document.getElementById('btnPainel'), txt = document.getElementById('painelEstado');
@@ -6214,11 +6217,11 @@
             const btn = document.getElementById('btnPainel');
             if (btn) btn.addEventListener('click', () => {
                 const acao = painelEink.info().estado === 'licenca' ? painelEink.darAcesso() : painelEink.escolher();
-                acao.then(() => painelEink.escrever(dadosPainelKanban(registos, new Date())));
+                acao.then(() => painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro)));
             });
-            painelEink.iniciar().then(() => painelEink.escrever(dadosPainelKanban(registos, new Date())));
+            painelEink.iniciar().then(() => painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro)));
             // «Hoje» e «7 dias» mudam com o dia, mesmo sem registos novos.
-            setInterval(() => painelEink.escrever(dadosPainelKanban(registos, new Date())), 10 * 60 * 1000);
+            setInterval(() => painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro)), 10 * 60 * 1000);
             // Envio diário às 12h nos dias úteis (com a app aberta; se for aberta depois das 12h, envia nessa altura).
             setInterval(envioDiarioPainel, 60 * 1000);
             envioDiarioPainel();
