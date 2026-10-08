@@ -4,6 +4,19 @@
 
 ---
 
+## v4.26.0 — 8 Out 2026
+
+### 📟 Painel e-ink: Mês corrente e Ano corrente
+
+As duas páginas do painel passam de «Hoje» e «Mês» para **Mês corrente** e **Ano corrente**, cada uma com gráfico de barras da produção diária, distribuição por origem e distribuição por tipo de erro. Campos novos no `impreskanban.painel.json` (os anteriores ficam):
+
+- **Mês corrente:** `mesPorDia` (todos os dias do mês, com zeros), `origens` e `erros` (já eram do mês)
+- **Ano corrente:** `ano` (total), `anoPorDia` (todos os dias do ano, com zeros), `anoOrigens` e `anoErros`
+- **Testes:** `dadosPainelKanban` em `test/pure-functions.test.js`; maqueta em `mockup/painel-eink.html`
+- O `painel.html` (qzte/e-ink_panel) tem de ser atualizado à parte para usar os campos novos
+
+---
+
 ## v4.25.0 — 8 Out 2026
 
 ### 📟 Painel e-ink: mais informação dos dashboards

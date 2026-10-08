@@ -29,65 +29,30 @@ table.t th{background:#eee}
 pre{background:#fff;border:1px solid #bbb;padding:10px;overflow:auto;font-size:12px;max-width:820px}
 </style></head><body>
 <h1>Maqueta — painel e-ink 7,5″ (800×480) alimentado por <code>impreskanban.painel.json</code></h1>
-<p class="n">Dados fictícios. Só preto, branco e cinzentos (sem cor, sem gradientes, sem hover). Duas páginas que o painel alterna: <b>Hoje</b> (vem do Dashboard Operacional) e <b>Mês</b> (vem do Dashboard de Gestão + o essencial da Qualidade).</p>
+<p class="n">Dados fictícios. Só preto, branco e cinzentos (sem cor, sem gradientes, sem hover). Duas páginas que o painel alterna: <b>Mês corrente</b> e <b>Ano corrente</b>, cada uma com produção diária, origens e tipos de erro (campos <code>mesPorDia</code>, <code>origens</code>, <code>erros</code>, <code>anoPorDia</code>, <code>anoOrigens</code>, <code>anoErros</code>).</p>
 
-<h2>Página 1 — Hoje (Operacional)</h2>
-<div class="wrap"><div class="ep" style="grid-template-rows:auto auto 1fr">
- <div class="hd"><span>ImpresKanban · Hoje</span><small>qui 8 out 2026 · atualizado 14:32</small></div>
- <div class="kpis">
-  <div class="k"><b>47</b><span>Kanbans hoje</span><br><i>▲ +12 vs ontem (35)</i></div>
-  <div class="k"><b>19</b><span>Registos</span><br><i>média 2,5 kb/registo</i></div>
-  <div class="k"><b>8</b><span>Serviços ativos</span><br><i>de 23 com histórico</i></div>
-  <div class="k"><b>212</b><span>Últimos 7 dias</span><br><i>sem. anterior: 188</i></div>
- </div>
- <div class="cols" style="grid-template-columns:1.5fr 1fr;padding-bottom:20px">
-  <div class="box"><h3>Atividade por hora (kanbans) — hoje</h3>
-   <svg viewBox="0 0 440 150" id="hora"></svg>
-   <h3 style="margin-top:6px">Por dia da semana (média 8 sem.)</h3>
-   <svg viewBox="0 0 440 62" id="dsem"></svg></div>
-  <div class="box"><h3>Últimos 14 dias</h3>
-   <svg viewBox="0 0 300 100" id="dia"></svg>
-   <h3 style="margin-top:8px">Top serviços hoje</h3>
-   <div class="row"><span>Talho</span><b>12</b></div>
-   <div class="row"><span>Padaria</span><b>9</b></div>
-   <div class="row"><span>Charcutaria</span><b>7</b></div>
-   <div class="row"><span>Frutas e Legumes</span><b>6</b></div>
-  </div>
- </div>
- <div class="ft"><span>Último registo: hoje 14:18</span><span>pág. 1/2</span></div>
-</div></div>
-
-<h2>Página 2 — Mês (Gestão + Qualidade resumida)</h2>
+<h2>Página 1 — Mês corrente</h2>
 <div class="wrap"><div class="ep" style="grid-template-rows:auto auto 1fr">
  <div class="hd"><span>ImpresKanban · Outubro 2026</span><small>até dia 8 · atualizado 14:32</small></div>
- <div class="kpis">
-  <div class="k"><b>418</b><span>Kanbans no mês</span><br><i>mês anterior: 1 204</i></div>
-  <div class="k"><b>162</b><span>Registos</span><br><i>média 52/dia útil</i></div>
-  <div class="k"><b>93%</b><span>Registos com ID tag</span><br><i>qualidade</i></div>
-  <div class="k"><b>6</b><span>Dias desde sem erro</span><br><i>último erro: 02 out</i></div>
+ <div class="kpis"><div class="k"><b>418</b><span>Kanbans no mês</span><br><i>mês anterior: 1 204</i></div><div class="k"><b>162</b><span>Registos</span></div><div class="k"><b>93%</b><span>Com ID tag</span></div><div class="k"><b>0</b><span>Dias sem registo</span></div></div>
+ <div class="cols" style="grid-template-columns:1.6fr 1fr 1fr;padding-bottom:20px">
+  <div class="box"><h3>Produção diária (kanbans)</h3><svg viewBox="0 0 480 150" id="mesdia"></svg></div>
+  <div class="box"><h3>Por origem</h3><div class="row"><span>Rutura</span><b>297</b><div class="bar" style="width:100%"></div></div><div class="row"><span>Pedido serviço</span><b>121</b><div class="bar" style="width:41%"></div></div></div>
+  <div class="box"><h3>Por tipo de erro</h3><div class="row"><span>Preço errado</span><b>14</b><div class="bar" style="width:100%"></div></div><div class="row"><span>Kanban perdido</span><b>9</b><div class="bar" style="width:64%"></div></div><div class="row"><span>Artigo trocado</span><b>5</b><div class="bar" style="width:36%"></div></div></div>
  </div>
- <div class="cols" style="grid-template-columns:1fr 1fr 1fr;padding-bottom:20px">
-  <div class="box"><h3>Top 5 serviços</h3>
-   <div class="row"><span>Talho</span><b>96</b><div class="bar" style="width:100%"></div></div>
-   <div class="row"><span>Padaria</span><b>81</b><div class="bar" style="width:84%"></div></div>
-   <div class="row"><span>Charcutaria</span><b>64</b><div class="bar" style="width:67%"></div></div>
-   <div class="row"><span>Peixaria</span><b>52</b><div class="bar" style="width:54%"></div></div>
-   <div class="row"><span>Frutas e Leg.</span><b>47</b><div class="bar" style="width:49%"></div></div></div>
-  <div class="box"><h3>Top 5 artigos</h3>
-   <div class="row"><span>Bife de peru</span><b>31</b><div class="bar" style="width:100%"></div></div>
-   <div class="row"><span>Pão de forma</span><b>27</b><div class="bar" style="width:87%"></div></div>
-   <div class="row"><span>Fiambre</span><b>22</b><div class="bar" style="width:71%"></div></div>
-   <div class="row"><span>Salmão</span><b>19</b><div class="bar" style="width:61%"></div></div>
-   <div class="row"><span>Maçã Gala</span><b>15</b><div class="bar" style="width:48%"></div></div></div>
-  <div class="box"><h3>Tipos de erro</h3>
-   <div class="row"><span>Preço errado</span><b>14</b><div class="bar" style="width:100%"></div></div>
-   <div class="row"><span>Kanban perdido</span><b>9</b><div class="bar" style="width:64%"></div></div>
-   <div class="row"><span>Artigo trocado</span><b>5</b><div class="bar" style="width:36%"></div></div>
-   <h3 style="margin-top:10px">Origem</h3>
-   <div class="row"><span>Pedido serviço</span><b>71%</b></div>
-   <div class="row"><span>Rutura</span><b>29%</b></div></div>
+ <div class="ft"><span>Barras: um dia (ver <code>mesPorDia</code>)</span><span>pág. 1/2</span></div>
+</div></div>
+
+<h2>Página 2 — Ano corrente</h2>
+<div class="wrap"><div class="ep" style="grid-template-rows:auto auto 1fr">
+ <div class="hd"><span>ImpresKanban · 2026</span><small>até 8 out · atualizado 14:32</small></div>
+ <div class="kpis"><div class="k"><b>6 310</b><span>Kanbans no ano</span></div><div class="k"><b>2 480</b><span>Registos</span></div><div class="k"><b>1 204</b><span>Melhor mês</span><br><i>set 2026</i></div><div class="k"><b>35</b><span>Média por dia útil</span></div></div>
+ <div class="cols" style="grid-template-columns:1.6fr 1fr 1fr;padding-bottom:20px">
+  <div class="box"><h3>Produção diária (kanbans)</h3><svg viewBox="0 0 480 150" id="anodia"></svg></div>
+  <div class="box"><h3>Por origem</h3><div class="row"><span>Rutura</span><b>4100</b><div class="bar" style="width:100%"></div></div><div class="row"><span>Pedido serviço</span><b>2210</b><div class="bar" style="width:54%"></div></div></div>
+  <div class="box"><h3>Por tipo de erro</h3><div class="row"><span>Preço errado</span><b>140</b><div class="bar" style="width:100%"></div></div><div class="row"><span>Kanban perdido</span><b>96</b><div class="bar" style="width:69%"></div></div><div class="row"><span>Artigo trocado</span><b>51</b><div class="bar" style="width:36%"></div></div></div>
  </div>
- <div class="ft"><span>Mês anterior comparado: set 2026</span><span>pág. 2/2</span></div>
+ <div class="ft"><span>Barras: um dia (ver <code>anoPorDia</code>)</span><span>pág. 2/2</span></div>
 </div></div>
 
 <h2>Avaliação: o que dos dashboards entra no painel</h2>
@@ -133,7 +98,8 @@ function bars(id,vals,labels,W,H,gap,every){const s=document.getElementById(id),
  vals.forEach((v,i)=>{const h=v/m*(base-top),x=i*(bw+gap);if(v)el(s,'rect',{x:x,y:base-h,width:bw,height:h,fill:'#111'});
   if(v&&(!every||i%every==0||v==m))el(s,'text',{x:x+bw/2,y:base-h-3,'text-anchor':'middle','font-size':11,'font-family':'system-ui'},v);
   if(!every||i%every==0)el(s,'text',{x:x+bw/2,y:H-2,'text-anchor':'middle','font-size':10,'font-family':'system-ui'},labels[i])})}
-bars('hora',[3,5,6,4,2,3,8,6,5,4,1],['8','9','10','11','12','13','14','15','16','17','18'],440,150,6);
-bars('dsem',[8,41,52,47,50,44,12],['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'],440,62,14);
-bars('dia',[30,34,0,0,28,41,39,33,36,0,0,35,35,47],['25','26','27','28','29','30','1','2','3','4','5','6','7','8'],300,100,4,2);
+const dias=(n,f)=>Array.from({length:n},(_,i)=>f(i));
+const mes=dias(31,i=>i<8?[30,34,0,0,28,41,39,33][i]:0);
+bars('mesdia',mes,dias(31,i=>String(i+1)),480,150,3,3);
+bars('anodia',dias(365,i=>(i%7>4?0:20+(i*37)%40)),dias(365,i=>i%30==0?String(i):''),480,150,0.5,30);
 </script></body></html>
