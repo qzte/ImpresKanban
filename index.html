@@ -75,7 +75,7 @@
     </script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.27.0 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.28.0 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
 
            Histórico de versões: versao.md (o changelog que estava aqui
@@ -6183,7 +6183,7 @@
                 origens: porChave(doMes, r => r.origem).map(([nome, n]) => ({ nome, n })),
                 mesPorDia: serie(doMes, diasDoPeriodo(agora.getFullYear(), agora.getMonth())),
                 ano: soma(doAno),
-                anoPorDia: serie(doAno, diasDoPeriodo(agora.getFullYear(), null)),
+                anoPorMes: Array.from({ length: 12 }, (_, m) => { const k = `${ano}-${p2(m + 1)}`; return { mes: k, n: soma(doAno.filter(r => r.data.slice(0, 7) === k)) }; }),
                 anoOrigens: porChave(doAno, r => r.origem).map(([nome, n]) => ({ nome, n })),
                 anoErros: porChave(doAno, erroTexto).map(([tipo, n]) => ({ tipo, n }))
             };

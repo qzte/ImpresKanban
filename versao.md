@@ -4,6 +4,14 @@
 
 ---
 
+## v4.28.0 — 8 Out 2026
+
+### 📟 Painel e-ink: ano corrente com produção mensal
+
+O gráfico de barras do ano corrente passa a mostrar a **produção mensal**. No `impreskanban.painel.json`, `anoPorDia` (365 valores) é substituído por `anoPorMes`: 12 itens `{ mes: "AAAA-MM", n }`, com zeros nos meses sem registos. O `painel.html` (qzte/e-ink_panel) acompanha esta alteração.
+
+---
+
 ## v4.27.0 — 8 Out 2026
 
 ### 📟 Painel e-ink: tipo de erro com a descrição
