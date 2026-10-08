@@ -374,7 +374,7 @@ describe('isRegistoErroKBPerdido', () => {
     });
 });
 
-describe('dadosPainelKanban (painel e-ink, v4.24.0)', () => {
+describe('dadosPainelKanban (painel e-ink, v4.25.0)', () => {
     // O resumo que vai para o impreskanban.painel.json: kanbans (soma de qtdKanbans), não registos.
     const { dadosPainelKanban } = carregarFuncoesPuras(['dadosPainelKanban']);
     const agora = new Date(2026, 9, 8, 10, 0);   // 8 out 2026 (quinta)
@@ -408,11 +408,38 @@ describe('dadosPainelKanban (painel e-ink, v4.24.0)', () => {
         assert.deepEqual(d.erros, [{ tipo: 'KB Perdido', n: 3 + 5 + 4 + 1 }, { tipo: 'KB Danificado', n: 2 }]);
         assert.deepEqual(d.servicos, [{ nome: 'Pediatria', n: 9 }, { nome: 'UCIP', n: 5 }, { nome: '(sem valor)', n: 1 }]);
     });
+    test('comparações: ontem, semana anterior, mês anterior, registos e serviços de hoje', () => {
+        assert.equal(d.ontem, 1);
+        assert.equal(d.semanaAnterior, 7 + 4);      // 25 set a 1 out: 30 set (7) e 1 out (4)
+        assert.equal(d.mesAnterior, 7 + 9);
+        assert.equal(d.registosHoje, 2);
+        assert.equal(d.servicosAtivosHoje, 1);
+        assert.equal(d.diasSemRegisto, 0);
+    });
+    test('hoje por hora (08h–18h), dia da semana, artigos, origens e ID tags', () => {
+        const l2 = [
+            { data: '2026-10-08', qtdKanbans: 2, timestamp: new Date(2026, 9, 8, 9, 30).toISOString(), artigoDescricao: 'Fiambre', origem: 'Rutura', idTag: 'A1', servicoId: 1, servico: 'Talho' },
+            { data: '2026-10-08', qtdKanbans: 1, timestamp: new Date(2026, 9, 8, 22, 0).toISOString(), artigoDescricao: 'Fiambre', origem: 'Pedido', idTag: ' ', servicoId: 2, servico: 'Padaria' },
+            { data: '2026-10-01', qtdKanbans: 8, artigoDescricao: 'Salmão', origem: 'Rutura', idTag: '' },
+        ];
+        const v = JSON.parse(JSON.stringify(dadosPainelKanban(l2, agora)));
+        assert.equal(v.porHora.length, 11);
+        assert.deepEqual(v.porHora[1], { h: 9, n: 2 });
+        assert.equal(v.porHora.reduce((t, x) => t + x.n, 0), 2);   // 22h fica fora da janela
+        assert.equal(v.porDiaSemana.length, 7);
+        assert.deepEqual(v.porDiaSemana[4], { d: 4, n: 1.4 });     // quintas: 8 out (3) e 1 out (8) = 11, a dividir por 8 semanas
+        assert.deepEqual(v.artigos, [{ nome: 'Salmão', n: 8 }, { nome: 'Fiambre', n: 3 }]);
+        assert.deepEqual(v.origens, [{ nome: 'Rutura', n: 10 }, { nome: 'Pedido', n: 1 }]);
+        assert.equal(v.taxaIdTags, 0.333);
+        assert.deepEqual(v.servicosHoje.map(x => x.nome).sort(), ['Padaria', 'Talho']);
+    });
     test('sem registos: zeros, último a null', () => {
         const v = JSON.parse(JSON.stringify(dadosPainelKanban([], agora)));
         assert.equal(v.hoje + v.semana + v.mes + v.registosMes, 0);
         assert.equal(v.ultimo, null);
         assert.equal(v.porDia.length, 14);
-        assert.deepEqual([v.erros, v.servicos], [[], []]);
+        assert.deepEqual([v.erros, v.servicos, v.artigos, v.origens], [[], [], [], []]);
+        assert.equal(v.taxaIdTags, null);
+        assert.equal(v.diasSemRegisto, null);
     });
 });

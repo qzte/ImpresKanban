@@ -75,7 +75,7 @@
     </script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.24.0 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.25.0 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
 
            Histórico de versões: versao.md (o changelog que estava aqui
@@ -6110,31 +6110,63 @@
         }
 
         // Os `dados` do impreskanban.painel.json. Tudo em KANBANS (soma de qtdKanbans), não em
-        // registos, exceto `registosMes`. Datas `AAAA-MM-DD` locais; `agora` é a referência.
+        // registos, exceto `registosMes`/`registosHoje`. Datas `AAAA-MM-DD` locais; `agora` é a referência.
+        // (v4.25.0: comparações com ontem/semana/mês anterior, hora, dia da semana, artigos, origens,
+        // ID tags e dias sem registos — o que o painel mostra do Operacional, Gestão e Qualidade.)
         function dadosPainelKanban(lista, agora) {
             const p2 = n => String(n).padStart(2, '0');
             const dia = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
             const menos = n => { const d = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() - n); return dia(d); };
             const hoje = dia(agora), inicioSemana = menos(6), mes = hoje.slice(0, 7);
+            const mesAnt = dia(new Date(agora.getFullYear(), agora.getMonth() - 1, 1)).slice(0, 7);
             const qtd = r => { const n = Number(r.qtdKanbans); return Number.isFinite(n) && n > 0 ? n : 1; };
             const validos = (Array.isArray(lista) ? lista : []).filter(r => r && /^\d{4}-\d{2}-\d{2}$/.test(r.data || ''));
             const soma = l => l.reduce((t, r) => t + qtd(r), 0);
+            const noIntervalo = (a, b) => validos.filter(r => r.data >= a && r.data <= b);
+            const doDia = validos.filter(r => r.data === hoje);
             const doMes = validos.filter(r => r.data.slice(0, 7) === mes);
             const porChave = (l, chave) => {
                 const m = new Map();
                 for (const r of l) { const k = String(chave(r) || '').trim() || '(sem valor)'; m.set(k, (m.get(k) || 0) + qtd(r)); }
                 return [...m].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
             };
-            const porDiaMap = new Map(porChave(validos.filter(r => r.data >= menos(13) && r.data <= hoje), r => r.data));
+            const porDiaMap = new Map(porChave(noIntervalo(menos(13), hoje), r => r.data));
+            // Hoje por hora (08h–18h, como o dashboard Operacional).
+            const porHora = Array.from({ length: 11 }, (_, i) => ({ h: i + 8, n: 0 }));
+            for (const r of doDia) {
+                const t = r.timestamp ? new Date(r.timestamp) : null;
+                const h = t && !isNaN(t) ? t.getHours() : -1;
+                if (h >= 8 && h <= 18) porHora[h - 8].n += qtd(r);
+            }
+            // Média por dia da semana nas últimas 8 semanas (56 dias: cada dia da semana ocorre 8 vezes).
+            const somaSem = new Array(7).fill(0);
+            for (const r of noIntervalo(menos(55), hoje)) somaSem[new Date(r.data + 'T12:00:00').getDay()] += qtd(r);
+            const ultimo = validos.reduce((u, r) => (r.data > u ? r.data : u), '') || null;
+            const ultimoRegisto = validos.reduce((u, r) => (r.timestamp && r.timestamp > u ? r.timestamp : u), '') || null;
+            const comTag = doMes.filter(r => String(r.idTag || '').trim()).length;
+            const dias = (a, b) => Math.round((new Date(a + 'T12:00:00') - new Date(b + 'T12:00:00')) / 86400000);
             return {
-                hoje: soma(validos.filter(r => r.data === hoje)),
-                semana: soma(validos.filter(r => r.data >= inicioSemana && r.data <= hoje)),
+                hoje: soma(doDia),
+                ontem: soma(validos.filter(r => r.data === menos(1))),
+                semana: soma(noIntervalo(inicioSemana, hoje)),
+                semanaAnterior: soma(noIntervalo(menos(13), menos(7))),
                 mes: soma(doMes),
+                mesAnterior: soma(validos.filter(r => r.data.slice(0, 7) === mesAnt)),
                 registosMes: doMes.length,
-                ultimo: validos.reduce((u, r) => (r.data > u ? r.data : u), '') || null,
+                registosHoje: doDia.length,
+                servicosAtivosHoje: new Set(doDia.map(r => r.servicoId || r.servico)).size,
+                ultimo,
+                ultimoRegisto,
+                diasSemRegisto: ultimo ? Math.max(0, dias(hoje, ultimo)) : null,
+                taxaIdTags: doMes.length ? Math.round((comTag / doMes.length) * 1000) / 1000 : null,
+                porHora,
+                porDiaSemana: somaSem.map((t, d) => ({ d, n: Math.round((t / 8) * 10) / 10 })),
                 porDia: Array.from({ length: 14 }, (_, i) => { const d = menos(13 - i); return { data: d, n: porDiaMap.get(d) || 0 }; }),
                 erros: porChave(doMes, r => r.tipoErro).map(([tipo, n]) => ({ tipo, n })),
-                servicos: porChave(doMes, r => r.servico || r.servicoId).map(([nome, n]) => ({ nome, n }))
+                servicos: porChave(doMes, r => r.servico || r.servicoId).map(([nome, n]) => ({ nome, n })),
+                servicosHoje: porChave(doDia, r => r.servico || r.servicoId).map(([nome, n]) => ({ nome, n })),
+                artigos: porChave(doMes, r => r.artigoDescricao || r.artigo).map(([nome, n]) => ({ nome, n })),
+                origens: porChave(doMes, r => r.origem).map(([nome, n]) => ({ nome, n }))
             };
         }
 
