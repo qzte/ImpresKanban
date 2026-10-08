@@ -4,6 +4,21 @@
 
 ---
 
+## v4.25.0 — 8 Out 2026
+
+### 📟 Painel e-ink: mais informação dos dashboards
+
+O `impreskanban.painel.json` passa a levar o essencial dos dashboards Operacional, Gestão e Qualidade (campos novos; os anteriores ficam iguais, por isso o painel antigo continua a funcionar).
+
+- **Novo (Operacional):** `ontem`, `semanaAnterior`, `registosHoje`, `servicosAtivosHoje`, `ultimoRegisto`, `porHora` (hoje, 08h–18h, em kanbans), `porDiaSemana` (média das últimas 8 semanas, 0 = domingo) e `servicosHoje`
+- **Novo (Gestão):** `mesAnterior`, `artigos` e `origens` (do mês, do maior para o menor)
+- **Novo (Qualidade):** `taxaIdTags` (fração 0–1 dos registos do mês com ID Tag, a mesma regra do dashboard) e `diasSemRegisto` (dias desde o último registo; **não** «dias sem erro», porque todos os registos são erros)
+- Fica de fora o que lê mal num e-ink: atividade por mês, tags/observações, tempo entre registos e análise RFID
+- **Testes:** casos novos de `dadosPainelKanban` em `test/pure-functions.test.js`; maqueta em `mockup/painel-eink.html`
+- O `painel.html` (qzte/e-ink_panel) tem de ser atualizado à parte para mostrar os campos novos
+
+---
+
 ## v4.24.0 — 8 Out 2026
 
 ### 📟 Painel e-ink
