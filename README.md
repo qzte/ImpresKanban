@@ -2,7 +2,7 @@
 
 > Ferramenta web **100% offline** para controlo e análise de Kanban e gestão de KPI para equipas de manutenção de supermercados.
 
-**Versão atual:** 4.28.0 — servida como `index.html`
+**Versão atual:** 4.29.0 — servida como `index.html`
 
 ---
 
@@ -97,6 +97,8 @@ Aceda a **📋 Registos → Batch** para registar múltiplos itens de uma vez:
 | **Múltiplos Artigos** | Um serviço → vários artigos diferentes |
 | **Múltiplos Serviços** | Um artigo → vários serviços diferentes |
 
+> O batch segue as regras do registo individual (v4.29.0): serviço e artigo têm de existir nas referências e a quantidade tem de ser um inteiro maior que zero. É **tudo ou nada** — com uma linha inválida não é gravada nenhuma e o formulário fica como está, para corrigir.
+
 ### Passo 4: Análise no Dashboard
 
 Aceda a **📊 Dashboards** para análise gráfica. Todos os dashboards suportam filtros de data e origem. Clicar nas barras dos gráficos abre um modal com os registos detalhados do período.
@@ -145,7 +147,7 @@ Ficheiro Excel (`.xlsx`) com as seguintes folhas obrigatórias:
 
 ### Convenções deste projecto
 
-**Ficheiro:** `kanban-kpi-analyzer-v{major}_{minor}_{patch}.html`  
+**Ficheiro:** `index.html` (nome estável desde a v4.11.0)  
 **Tag git:** `v{major}.{minor}.{patch}`  
 **Versionamento:** [Semantic Versioning](https://semver.org/)
 
@@ -162,10 +164,10 @@ Ficheiro Excel (`.xlsx`) com as seguintes folhas obrigatórias:
 git status
 
 # 2. Adicionar alterações
-git add index.html kanban-kpi-analyzer-v4_13_0.html versao.md README.md sw.js
+git add index.html version.js versao.md README.md
 
 # 3. Commit com mensagem descritiva
-git commit -m "feat(form): ID Tag obrigatório quando o erro é 'ID Tag ilegível ou em falta' | kanban-kpi-analyzer-v4_13_0.html"
+git commit -m "feat(form): ID Tag obrigatório quando o erro é 'ID Tag ilegível ou em falta'"
 
 # 4. Enviar para GitHub
 git push
@@ -190,7 +192,6 @@ A versão tem uma fonte única, `version.js` (`APP_VERSION`), usada pelo título
 ```bash
 git clone https://github.com/SEU-USER/kanban-kpi-analyzer.git
 cd kanban-kpi-analyzer
-# Ou usar setup_git.sh se for repositório novo
 ```
 
 ## 🧪 Testes
@@ -210,7 +211,7 @@ npm run test:e2e
 | Pasta | O que cobre |
 |---|---|
 | `test/` | Funções puras extraídas de `index.html` (validações, datas, pesquisas nas referências, merge de backups) |
-| `e2e/` | Fluxos completos no browser: arranque, registo individual (validação, duplicados), Histórico (paginação, filtros, editar, eliminar), backup JSON (exportar, importar Concatenar/Substituir, ficheiro inválido), backup semanal, recuperação de dados corrompidos, Content-Security-Policy (com xlsx.js/jsPDF/autotable reais — ver `e2e/fixtures/README.md`), os filtros dos 3 dashboards e o motor de armazenamento IndexedDB (migração, fallback, limite acima do do localStorage) |
+| `e2e/` | Fluxos completos no browser: arranque, registo individual (validação, duplicados), registo em Batch (validação nas referências, tudo ou nada, duplicados), período do briefing mensal, Histórico (paginação, filtros, editar, eliminar), backup JSON (exportar, importar Concatenar/Substituir, ficheiro inválido), backup semanal, recuperação de dados corrompidos, Content-Security-Policy (com xlsx.js/jsPDF/autotable reais — ver `e2e/fixtures/README.md`), os filtros dos 3 dashboards e o motor de armazenamento IndexedDB (migração, fallback, limite acima do do localStorage) |
 
 Os testes de interface correm com o relógio fixo, fuso de Lisboa e sem rede (CDN bloqueadas), por isso dão o mesmo resultado em qualquer dia. As duas suites correm no CI em cada PR.
 
@@ -222,6 +223,7 @@ Consulte o ficheiro [`versao.md`](./versao.md) para o histórico completo.
 
 | Versão | Data | Destaque |
 |---|---|---|
+| **4.29.0** | 13 Nov 2026 | 🛡️ Batch com as regras do registo individual (tudo ou nada), período do briefing mensal na hora de verão, alertas e concatenação de backups |
 | **4.28.0** | 8 Out 2026 | 📟 Painel e-ink: o ano corrente passa a produção mensal (`anoPorMes`) em vez de diária |
 | **4.27.0** | 8 Out 2026 | 📟 Painel e-ink: o tipo de erro vai com a descrição em vez do código |
 | **4.26.0** | 8 Out 2026 | 📟 Painel e-ink: «Hoje» passa a «Mês corrente» e «Mês» a «Ano corrente» (produção diária, origens, tipos de erro) |

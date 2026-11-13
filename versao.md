@@ -4,6 +4,36 @@
 
 ---
 
+## v4.29.0 — 13 Nov 2026
+
+### 🛡️ Revisão da aplicação: integridade dos dados no Batch, relatórios e backups
+
+**Registo em Batch (Múltiplos Artigos e Múltiplos Serviços)** — passa a aplicar as regras do registo individual (v4.11.2), que só existiam lá:
+
+- **Serviço e artigo têm de existir nas referências.** Antes, um ID de serviço inexistente era gravado com o próprio ID no lugar da descrição e sem local; e um ID numérico (como o Excel o devolve) aparecia sempre como «Serviço não encontrado»
+- **Código do artigo sem os zeros à esquerda** é aceite e gravado na forma canónica de 10 dígitos
+- **Quantidade de kanbans** tem de ser um inteiro maior que zero (`lerQtdKanbans`). Antes gravava quantidades negativas e transformava em silêncio um campo vazio ou zero em 1
+- **Tudo ou nada:** com uma linha inválida não é gravada nenhuma e o formulário fica como está, com a lista do que corrigir. Antes gravava as linhas válidas e limpava o formulário, perdendo as inválidas
+- **Aviso de duplicados**, contra os registos existentes e dentro do próprio batch
+
+**Relatórios PDF**
+
+- **Briefing mensal com o período errado na hora de verão.** O intervalo era calculado em UTC: de abril a outubro recuava um dia (julho ia de 30 jun a 30 jul), incluindo o último dia do mês anterior e deixando de fora o último dia do mês. Passa a usar datas locais; o mesmo no nome do ficheiro do Backup JSON
+
+**Backups**
+
+- **Concatenar duplicava as origens por omissão** (instalações sem folha T_Origem) a cada importação: 3 → 6 → 9 opções no campo Origem. As tabelas de referência passam a ser comparadas pelas chaves internas
+- **Entradas inválidas** no ficheiro (ex.: `null` na lista de registos, tabela que não é lista) são ignoradas em vez de interromperem a importação a meio
+
+**Alertas**
+
+- `<strong>`/`<em>` das mensagens apareciam como texto («&lt;strong&gt;Ficheiro:&lt;/strong&gt;») desde o escape da v4.11.1 — voltam a ser formatação; o resto continua escapado
+- O ícone deixa de aparecer duas vezes («✅✅»), o tipo `error` tem estilo de aviso, e um alerta novo já não é escondido pelo temporizador do anterior
+
+**Testes:** `e2e/batch.e2e.js` e `e2e/relatorios.e2e.js` (novos), caso novo em `e2e/backup.e2e.js`, `lerQtdKanbans` em `test/pure-functions.test.js`
+
+---
+
 ## v4.28.0 — 8 Out 2026
 
 ### 📟 Painel e-ink: ano corrente com produção mensal

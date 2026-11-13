@@ -89,6 +89,33 @@ describe('Backup JSON', () => {
         }
     });
 
+    test('concatenar não duplica as origens por omissão nem rebenta com entradas inválidas (v4.29.0)', async () => {
+        // Sem T_Origem no ficheiro de referência, a app usa 3 origens por
+        // omissão — que não têm ID_ORIGEM e duplicavam a cada concatenação
+        const { context, page, erros } = await abrirApp(browser, url, {
+            storage: { ...REFERENCIAS, kanban_registos: [criarRegisto(1)] },
+            aceitarDialogos: true, // importar? OK; concatenar? OK
+        });
+        try {
+            const origens = await page.evaluate(() => tOrigem);
+            assert.equal(origens.length, 3);
+            await page.setInputFiles('#fileBackup', ficheiroBackup(
+                [null, 'lixo', criarRegisto(2)],
+                { tOrigem: origens, tServicos: REFERENCIAS.kanban_ref_servicos, tErros: 'não é lista' }
+            ));
+            await page.waitForFunction(() => /concatenado com sucesso/.test(document.getElementById('importAlert').textContent));
+
+            assert.equal(await page.evaluate(() => tOrigem.length), 3);
+            assert.equal(await page.evaluate(() => tServicos.length), 2);
+            assert.equal(await page.evaluate(() => tErros.length), 2);
+            const uuids = (await lerStorageJSON(page, 'kanban_registos')).map(r => r.uuid);
+            assert.deepEqual(uuids, ['seed-1', 'seed-2']);
+            assert.deepEqual(erros, []);
+        } finally {
+            await context.close();
+        }
+    });
+
     test('importar em modo Substituir troca os registos pelos do backup', async () => {
         const { context, page, erros } = await abrirApp(browser, url, {
             storage: { ...REFERENCIAS, kanban_registos: [criarRegisto(1), criarRegisto(2)] },
