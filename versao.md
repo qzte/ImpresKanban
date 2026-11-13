@@ -4,6 +4,17 @@
 
 ---
 
+## v4.30.0 — 13 Nov 2026
+
+### 🧹 Pontos pendentes da revisão da v4.29.0
+
+- **Origens por omissão iguais em todos os caminhos.** Sem folha T_Origem, um Excel dava 4 origens (com «Manutenção») e o arranque e «Limpar referências» davam 3 — como o README sempre disse. Passa a haver uma só definição, `origensPadrao()`: Armazém, Externo A, Externo B
+- **Importar registos de Excel identifica-os pelo UUID.** Comparar por campos descartava registos legítimos, por exemplo os que o operador tinha confirmado como «adicionar mesmo assim». Linhas sem UUID (folhas antigas) continuam a ser comparadas pelos campos
+- **Playwright 1.56.1 → 1.65.0** e o job `e2e` volta a `ubuntu-latest` (o 26.04 não era suportado pela versão antiga)
+- **Testes:** `e2e/origens-excel.e2e.js`
+
+---
+
 ## v4.29.0 — 13 Nov 2026
 
 ### 🛡️ Revisão da aplicação: integridade dos dados no Batch, relatórios e backups
