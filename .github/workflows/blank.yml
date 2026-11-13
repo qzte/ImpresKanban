@@ -57,10 +57,7 @@ jobs:
   # unitários acima só cobrem funções puras; a maioria dos bugs do changelog
   # (tabs, formulários, gravação) estava na interface. Ver e2e/helpers.js.
   e2e:
-    # Fixo em 24.04: o Playwright 1.56.1 (package.json) não instala o Chromium
-    # no ubuntu-latest desde que este passou a 26.04. Voltar a ubuntu-latest
-    # quando o Playwright for atualizado para uma versão que o suporte.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 

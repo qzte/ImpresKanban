@@ -75,7 +75,7 @@
     </script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.29.0 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.30.0 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
 
            Histórico de versões: versao.md (o changelog que estava aqui
@@ -2973,6 +2973,17 @@
         let tUtilizadores = [];
         let tErros = [];
         let tOrigem = [];  // NOVO: Tabela de origens
+        // Origens usadas quando não há T_Origem (arranque, "limpar referências",
+        // Excel sem a folha). Antes havia três cópias, uma delas com 4 origens
+        // («Manutenção») — a mesma instalação mudava de origens consoante o
+        // caminho (v4.30.0). Devolve cópias: as origens são alteradas em memória.
+        function origensPadrao() {
+            return [
+                { ID_Origem: 1, Nome: 'Armazém', Ativo: true },
+                { ID_Origem: 2, Nome: 'Externo A', Ativo: true },
+                { ID_Origem: 3, Nome: 'Externo B', Ativo: true }
+            ];
+        }
         const STORAGE_KEY = 'kanban_registos';
         const STORAGE_REF_ARTIGO = 'kanban_ref_artigo';
         const STORAGE_REF_SERVICOS = 'kanban_ref_servicos';
@@ -4399,10 +4410,20 @@
                         dataModificacao: r['Data Modificação'] || new Date().toISOString()
                     }));
 
+                    // Um registo com UUID é duplicado se esse UUID já existe — é a
+                    // identidade do registo, como na importação de backup JSON.
+                    // Comparar campos descartava registos legítimos que o operador
+                    // já tinha confirmado como «adicionar mesmo assim». Só as linhas
+                    // sem UUID (folhas antigas) caem na comparação por campos (v4.30.0)
+                    const uuidsExistentes = new Set(registos.map(r => r.uuid).filter(Boolean));
                     let adicionados = 0, duplicados = 0;
-                    dadosImportados.forEach(novoRegisto => {
-                        if (validarDuplicados(novoRegisto)) { duplicados++; }
-                        else { registos.push(novoRegisto); adicionados++; }
+                    dadosExcel.forEach((linha, i) => {
+                        const novoRegisto = dadosImportados[i];
+                        const repetido = linha.UUID
+                            ? uuidsExistentes.has(novoRegisto.uuid)
+                            : validarDuplicados(novoRegisto);
+                        if (repetido) { duplicados++; }
+                        else { registos.push(novoRegisto); uuidsExistentes.add(novoRegisto.uuid); adicionados++; }
                     });
 
                     if (await salvarDados()) {
@@ -4810,12 +4831,7 @@
                         }
                     } else {
                         // Valores padrão se T_Origem não existir
-                        tOrigem = [
-                            { ID_Origem: 1, Nome: 'Manutenção', Ativo: true },
-                            { ID_Origem: 2, Nome: 'Armazém', Ativo: true },
-                            { ID_Origem: 3, Nome: 'Externo A', Ativo: true },
-                            { ID_Origem: 4, Nome: 'Externo B', Ativo: true }
-                        ];
+                        tOrigem = origensPadrao();
                         debugLog('⚠️ T_Origem não encontrada, usando valores padrão:', tOrigem.length, 'origens');
                     }
 
@@ -4997,11 +5013,7 @@
                     debugLog('✅ T_Origem carregada do localStorage:', tOrigem.length, 'origens');
                 } else {
                     // Valores padrão se não houver ficheiro de referência
-                    tOrigem = [
-                        { ID_Origem: 1, Nome: 'Armazém', Ativo: true },
-                        { ID_Origem: 2, Nome: 'Externo A', Ativo: true },
-                        { ID_Origem: 3, Nome: 'Externo B', Ativo: true }
-                    ];
+                    tOrigem = origensPadrao();
                     debugLog('⚠️ T_Origem não encontrada, usando valores padrão');
                 }
                 
@@ -5624,11 +5636,7 @@
                 );
 
                 // Resetar para valores padrão
-                tOrigem = [
-                    { ID_Origem: 1, Nome: 'Armazém', Ativo: true },
-                    { ID_Origem: 2, Nome: 'Externo A', Ativo: true },
-                    { ID_Origem: 3, Nome: 'Externo B', Ativo: true }
-                ];
+                tOrigem = origensPadrao();
                 popularOrigens();  // Repopular com valores padrão
                 popularUtilizadores();
                 popularErros();
