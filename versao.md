@@ -12,6 +12,7 @@
 - **Importar registos de Excel identifica-os pelo UUID.** Comparar por campos descartava registos legítimos, por exemplo os que o operador tinha confirmado como «adicionar mesmo assim». Linhas sem UUID (folhas antigas) continuam a ser comparadas pelos campos
 - **Playwright 1.56.1 → 1.65.0** e o job `e2e` volta a `ubuntu-latest` (o 26.04 não era suportado pela versão antiga)
 - **Testes:** `e2e/origens-excel.e2e.js`
+- **Nota de CI:** na v4.29.0 o job `e2e` esteve fixado em `ubuntu-24.04` (o Playwright 1.56.1 não instalava o Chromium no 26.04 do `ubuntu-latest`); a atualização para a 1.65.0 tornou isso desnecessário
 
 ---
 

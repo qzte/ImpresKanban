@@ -119,7 +119,7 @@ Ficheiro Excel (`.xlsx`) com as seguintes folhas obrigatórias:
 | **T_Erros** | `CODIGO_ERRO`, `DESCRICAO_ERRO`, `ERRO_ATIVO` |
 | **T_Origem** *(opcional)* | `ID_ORIGEM`, `DESCRICAO_ORIGEM`, `ORIGEM_ATIVO` |
 
-> Apenas registos com `*_ATIVO = true` são carregados (aceite também como texto "VERDADEIRO"/"TRUE"/"SIM" ou número `1` — ver `isValorAtivo()`, v4.9.9). Se T_Origem não existir, são usados valores padrão (Armazém, Externo A, Externo B).
+> Apenas registos com `*_ATIVO = true` são carregados (aceite também como texto "VERDADEIRO"/"TRUE"/"SIM" ou número `1` — ver `isValorAtivo()`, v4.9.9). Se T_Origem não existir, são usados valores padrão (Armazém, Externo A, Externo B) — os mesmos no arranque, ao carregar um Excel sem a folha e em «Limpar referências» (`origensPadrao()`, v4.30.0).
 
 ---
 
@@ -198,6 +198,8 @@ cd kanban-kpi-analyzer
 
 A app não precisa de build. O `package.json` serve só para as ferramentas de teste.
 
+Os testes unitários correm em Node 20+; os de interface pedem **Node 22+** (`node --test` com padrões glob). Os testes de interface fixam o Playwright em `1.65.0` (`package.json`); o CI corre ambas as suites em `ubuntu-latest`.
+
 ```bash
 # Testes unitários das funções puras (sem dependências)
 node --test
@@ -210,7 +212,7 @@ npm run test:e2e
 
 | Pasta | O que cobre |
 |---|---|
-| `test/` | Funções puras extraídas de `index.html` (validações, datas, pesquisas nas referências, merge de backups) |
+| `test/` | Funções puras extraídas de `index.html` (validações, quantidades de kanbans, datas, pesquisas nas referências, merge de backups) |
 | `e2e/` | Fluxos completos no browser: arranque, registo individual (validação, duplicados), registo em Batch (validação nas referências, tudo ou nada, duplicados), período do briefing mensal, Histórico (paginação, filtros, editar, eliminar), importação de registos de Excel (duplicados por UUID), origens por omissão, backup JSON (exportar, importar Concatenar/Substituir, ficheiro inválido), backup semanal, recuperação de dados corrompidos, Content-Security-Policy (com xlsx.js/jsPDF/autotable reais — ver `e2e/fixtures/README.md`), os filtros dos 3 dashboards e o motor de armazenamento IndexedDB (migração, fallback, limite acima do do localStorage) |
 
 Os testes de interface correm com o relógio fixo, fuso de Lisboa e sem rede (CDN bloqueadas), por isso dão o mesmo resultado em qualquer dia. As duas suites correm no CI em cada PR.
