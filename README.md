@@ -2,7 +2,7 @@
 
 > Ferramenta web **100% offline** para controlo e análise de Kanban e gestão de KPI para equipas de manutenção de supermercados.
 
-**Versão atual:** 4.30.0 — servida como `index.html`
+**Versão atual:** 4.31.0 — servida como `index.html`
 
 ---
 
@@ -225,6 +225,7 @@ Consulte o ficheiro [`versao.md`](./versao.md) para o histórico completo.
 
 | Versão | Data | Destaque |
 |---|---|---|
+| **4.31.0** | 13 Nov 2026 | 📟 Universo de kanbans mensal e `universoPorMes` no feed do painel e-ink |
 | **4.30.0** | 13 Nov 2026 | 🧹 Origens por omissão iguais em todos os caminhos, importação de Excel por UUID, Playwright 1.65 |
 | **4.29.0** | 13 Nov 2026 | 🛡️ Batch com as regras do registo individual (tudo ou nada), período do briefing mensal na hora de verão, alertas e concatenação de backups |
 | **4.28.0** | 8 Out 2026 | 📟 Painel e-ink: o ano corrente passa a produção mensal (`anoPorMes`) em vez de diária |

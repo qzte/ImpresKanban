@@ -4,6 +4,16 @@
 
 ---
 
+## v4.31.0 — 13 Nov 2026
+
+### 📟 Universo de kanbans no painel e-ink
+
+- **Universo de kanbans, avaliado todos os meses.** Em Gestão dos Dados › Painel e-ink há agora «Universo de kanbans»: mês + número, guardado em `kanban_universo_mensal` (entra em «Limpar tudo»). Guardar um mês vazio ou a 0 apaga-o
+- **Campo novo no feed `impreskanban.painel.json`:** `universoPorMes: [{ mes, n }]` (até 12 meses; a `versao` do feed não muda). O painel.html usa o último mês e mostra, na página «Ano corrente», a caixa «% DO UNIVERSO» (kanbans do ano ÷ universo) entre «Este ano» e «Este mês» — precisa do painel.html do qzte/e-ink_panel com esta alteração; sem ele ignora o campo
+- **Testes:** `dadosPainelKanban` com universo
+
+---
+
 ## v4.30.0 — 13 Nov 2026
 
 ### 🧹 Pontos pendentes da revisão da v4.29.0

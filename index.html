@@ -75,7 +75,7 @@
     </script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.30.0 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.31.0 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
 
            Histórico de versões: versao.md (o changelog que estava aqui
@@ -2693,6 +2693,17 @@
                 <button class="btn btn-secondary" id="btnPainel" type="button">Escolher pasta</button>
             </div>
             <div id="painelEstado" role="status" style="font-size: 0.85rem; color: var(--text-muted); margin-top: var(--space-md);"></div>
+            <h3 style="font-size: 1rem; margin: var(--space-lg) 0 var(--space-sm) 0;">Universo de kanbans</h3>
+            <p style="font-size: 0.9rem; color: var(--text-muted); margin: 0 0 var(--space-md) 0;">
+                Número total de kanbans do universo, avaliado <b>todos os meses</b>. O painel mostra, na página do ano, a percentagem de
+                kanbans feitos no ano face ao valor do último mês guardado. Para apagar um mês, guarde-o vazio ou a 0.
+            </p>
+            <div class="button-group">
+                <input type="month" id="universoMes" aria-label="Mês da avaliação">
+                <input type="number" id="universoN" min="0" step="1" placeholder="Universo (kanbans)" aria-label="Universo de kanbans">
+                <button class="btn btn-secondary" id="btnUniverso" type="button">Guardar</button>
+            </div>
+            <div id="universoLista" style="font-size: 0.85rem; color: var(--text-muted); margin-top: var(--space-md);"></div>
         </div>
 
         </div>
@@ -3002,6 +3013,9 @@
         // do lembrete de backup semanal (verificarBackupSemanal)
         const BACKUP_RECENTE_HORAS = 7 * 24;
 
+        // Universo de kanbans avaliado em cada mês: { 'AAAA-MM': n } (v4.31.0) — alimenta a % do universo no painel e-ink.
+        const STORAGE_UNIVERSO = 'kanban_universo_mensal';
+
         // Todas as chaves escritas por esta app. Usada para limpar apenas os
         // dados da aplicação, sem tocar no resto da origem (v4.11.2)
         const CHAVES_STORAGE_APP = [
@@ -3016,7 +3030,8 @@
             STORAGE_BACKUP_SEMANAL,
             STORAGE_BACKUP_LEGADO,
             STORAGE_BACKUP_TIMESTAMP,
-            'kanban_backup_semanal_timestamp'
+            'kanban_backup_semanal_timestamp',
+            STORAGE_UNIVERSO
         ];
 
         // ==========================================
@@ -4040,6 +4055,8 @@
             await carregarReferencias();
 
             // Painel e-ink (v4.24.0): com os registos já carregados, retoma a pasta lembrada e grava o resumo
+            universoKanbans = await storageGetJSON(STORAGE_UNIVERSO, {}, v => v && typeof v === 'object' && !Array.isArray(v));
+            ligarUniversoPainel();
             ligarPainelEink();
 
             // Verificar se é dia de backup semanal (v4.9.1)
@@ -6185,7 +6202,7 @@
         // registos, exceto `registosMes`/`registosHoje`. Datas `AAAA-MM-DD` locais; `agora` é a referência.
         // (v4.25.0: comparações com ontem/semana/mês anterior, hora, dia da semana, artigos, origens,
         // ID tags e dias sem registos — o que o painel mostra do Operacional, Gestão e Qualidade.)
-        function dadosPainelKanban(lista, agora, descricaoErro = () => '') {
+        function dadosPainelKanban(lista, agora, descricaoErro = () => '', universo = null) {
             const p2 = n => String(n).padStart(2, '0');
             const dia = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
             const menos = n => { const d = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() - n); return dia(d); };
@@ -6256,7 +6273,11 @@
                 ano: soma(doAno),
                 anoPorMes: Array.from({ length: 12 }, (_, m) => { const k = `${ano}-${p2(m + 1)}`; return { mes: k, n: soma(doAno.filter(r => r.data.slice(0, 7) === k)) }; }),
                 anoOrigens: porChave(doAno, r => r.origem).map(([nome, n]) => ({ nome, n })),
-                anoErros: porChave(doAno, erroTexto).map(([tipo, n]) => ({ tipo, n }))
+                anoErros: porChave(doAno, erroTexto).map(([tipo, n]) => ({ tipo, n })),
+                // v4.31.0: universo de kanbans avaliado em cada mês (os últimos 12 com valor); o painel usa o mais recente.
+                universoPorMes: Object.entries(universo && typeof universo === 'object' ? universo : {})
+                    .filter(([m, n]) => /^\d{4}-\d{2}$/.test(m) && Number.isFinite(Number(n)) && Number(n) > 0)
+                    .sort(([a], [b]) => (a < b ? -1 : 1)).slice(-12).map(([mes, n]) => ({ mes, n: Math.round(Number(n)) }))
             };
         }
 
@@ -6266,7 +6287,7 @@
         // Agrupa gravações seguidas (o registo em batch e a importação gravam várias vezes).
         function agendarPainel() {
             clearTimeout(painelTimer);
-            painelTimer = setTimeout(() => painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro)), 2000);
+            painelTimer = setTimeout(() => painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro, universoKanbans)), 2000);
         }
         function mostrarPainel(i) {
             const btn = document.getElementById('btnPainel'), txt = document.getElementById('painelEstado');
@@ -6283,16 +6304,40 @@
                 erro: `Não foi possível gravar ${i.ficheiro}: ${i.erro}`
             })[i.estado] || '';
         }
+        // Universo de kanbans (v4.31.0): avaliado todos os meses; o painel mostra feitos no ano ÷ universo do último mês.
+        let universoKanbans = {};
+        function mostrarUniversoPainel() {
+            const el = document.getElementById('universoLista');
+            if (!el) return;
+            const meses = Object.keys(universoKanbans).sort().slice(-6).reverse();
+            el.textContent = meses.length ? 'Guardado: ' + meses.map(m => `${m}: ${universoKanbans[m]}`).join(' · ') : 'Ainda sem valores.';
+        }
+        function ligarUniversoPainel() {
+            const mes = document.getElementById('universoMes'), n = document.getElementById('universoN'), btn = document.getElementById('btnUniverso');
+            if (!mes || !n || !btn) return;
+            const d = new Date();
+            mes.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            mostrarUniversoPainel();
+            btn.addEventListener('click', async () => {
+                const valor = Math.round(Number(n.value));
+                if (!/^\d{4}-\d{2}$/.test(mes.value) || !Number.isFinite(valor)) return;
+                if (valor > 0) universoKanbans[mes.value] = valor; else delete universoKanbans[mes.value];   // 0 ou vazio apaga o mês
+                await storageSetJSON(STORAGE_UNIVERSO, universoKanbans);
+                n.value = '';
+                mostrarUniversoPainel();
+                painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro, universoKanbans));
+            });
+        }
         function ligarPainelEink() {
             painelEink.subscrever(mostrarPainel);
             const btn = document.getElementById('btnPainel');
             if (btn) btn.addEventListener('click', () => {
                 const acao = painelEink.info().estado === 'licenca' ? painelEink.darAcesso() : painelEink.escolher();
-                acao.then(() => painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro)));
+                acao.then(() => painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro, universoKanbans)));
             });
-            painelEink.iniciar().then(() => painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro)));
+            painelEink.iniciar().then(() => painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro, universoKanbans)));
             // «Hoje» e «7 dias» mudam com o dia, mesmo sem registos novos.
-            setInterval(() => painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro)), 10 * 60 * 1000);
+            setInterval(() => painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro, universoKanbans)), 10 * 60 * 1000);
             // Envio diário às 12h nos dias úteis (com a app aberta; se for aberta depois das 12h, envia nessa altura).
             setInterval(envioDiarioPainel, 60 * 1000);
             envioDiarioPainel();
@@ -6306,7 +6351,7 @@
             const hoje = `${agora.getFullYear()}-${agora.getMonth() + 1}-${agora.getDate()}`;
             try { if (localStorage.getItem(CHAVE_ENVIO_PAINEL) === hoje) return; } catch (e) { /* sem storage: envia na mesma */ }
             try { localStorage.setItem(CHAVE_ENVIO_PAINEL, hoje); } catch (e) { /* ignora */ }
-            painelEink.escrever(dadosPainelKanban(registos, agora), true);
+            painelEink.escrever(dadosPainelKanban(registos, agora, descricaoTipoErro, universoKanbans), true);
         }
 
         // Descarta entradas que não são sequer um registo plausível (fragmento

@@ -398,6 +398,14 @@ describe('dadosPainelKanban (painel e-ink, v4.25.0)', () => {
         assert.equal(d.registosMes, 5);
         assert.equal(d.ultimo, '2026-10-08');
     });
+    test('universoPorMes: só meses válidos com valor, por ordem, no máximo 12 (v4.31.0)', () => {
+        const u = { '2026-10': 4200, '2026-09': '4100', '2026-08': 0, lixo: 5, '2026-07': -3 };
+        const v = JSON.parse(JSON.stringify(dadosPainelKanban(lista, agora, undefined, u)));
+        assert.deepEqual(v.universoPorMes, [{ mes: '2026-09', n: 4100 }, { mes: '2026-10', n: 4200 }]);
+        assert.deepEqual(d.universoPorMes, []);   // sem universo: vazio
+        const muitos = Object.fromEntries(Array.from({ length: 15 }, (_, i) => [`2025-${String((i % 12) + 1).padStart(2, '0')}-x`, 1]));
+        assert.deepEqual(JSON.parse(JSON.stringify(dadosPainelKanban(lista, agora, undefined, muitos))).universoPorMes, []);
+    });
     test('14 dias, do mais antigo para hoje, com zeros nos dias sem registos', () => {
         assert.equal(d.porDia.length, 14);
         assert.deepEqual(d.porDia[0], { data: '2026-09-25', n: 0 });
