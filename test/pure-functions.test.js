@@ -472,3 +472,16 @@ describe('dadosPainelKanban (painel e-ink, v4.25.0)', () => {
         assert.equal(v.diasSemRegisto, null);
     });
 });
+
+describe('lerQtdKanbans (v4.29.0)', () => {
+    // O batch usava `parseInt(valor) || 1`: gravava -3 e transformava em
+    // silêncio um campo vazio ou zero em 1.
+    const { lerQtdKanbans } = carregarFuncoesPuras(['lerQtdKanbans']);
+
+    for (const [valor, esperado] of [['1', 1], [' 12 ', 12], [7, 7], ['007', 7]]) {
+        test(`${JSON.stringify(valor)} → ${esperado}`, () => assert.equal(lerQtdKanbans(valor), esperado));
+    }
+    for (const valor of ['', '0', '-3', '1.5', '2e3', 'abc', '3 caixas', null, undefined, NaN, 0, -1, 1.5]) {
+        test(`${JSON.stringify(valor)} é rejeitado`, () => assert.equal(lerQtdKanbans(valor), null));
+    }
+});

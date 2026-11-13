@@ -75,7 +75,7 @@
     </script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.28.0 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.29.0 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
 
            Histórico de versões: versao.md (o changelog que estava aqui
@@ -3393,7 +3393,7 @@
             // Event listener para auto-completar
             input.addEventListener('input', function() {
                 const codigo = this.value.trim();
-                const artigo = tArtigo.find(a => a.CODIGO === codigo);
+                const artigo = encontrarArtigo(codigo);
                 const hint = linha.querySelector('.batch-artigo-hint');
                 const armazemInput = linha.querySelector('.batch-artigo-armazem');
                 
@@ -3440,15 +3440,15 @@
             // Validar campos comuns
             const data = document.getElementById('batchData').value;
             const utilizadorUUID = document.getElementById('batchUtilizador').value;
-            const servicoId = document.getElementById('batchServicoId').value.trim();
+            const servicoIdIntroduzido = document.getElementById('batchServicoId').value.trim();
             const origem = document.getElementById('batchOrigem').value;
             const tipoErro = document.getElementById('batchTipoErro').value;
             const ultimoEstadoRFID = document.getElementById('batchUltimoEstadoRFID').value;
             const exigeUltimoEstadoRFID = atualizarCampoUltimoEstadoRFID('batchTipoErro', 'batchUltimoEstadoRFIDGroup', 'batchUltimoEstadoRFID');
             
-            debugLog('📋 Campos comuns:', { data, utilizadorUUID, servicoId, origem, tipoErro, ultimoEstadoRFID });
+            debugLog('📋 Campos comuns:', { data, utilizadorUUID, servicoIdIntroduzido, origem, tipoErro, ultimoEstadoRFID });
             
-            if (!data || !utilizadorUUID || !servicoId || !origem || !tipoErro) {
+            if (!data || !utilizadorUUID || !servicoIdIntroduzido || !origem || !tipoErro) {
                 mostrarAlerta('⚠️ Por favor, preencha todos os campos obrigatórios da secção "Informações Comuns"', 'warning');
                 return;
             }
@@ -3469,10 +3469,17 @@
             
             debugLog('👤 Utilizador:', { utilizadorUUID, utilizadorNome, utilizadorEmail });
             
-            // Obter info do serviço
-            const servico = tServicos.find(s => s.ID_Servico === servicoId);
-            const servicoNome = servico ? servico.Servico : servicoId;
-            const local = servico ? servico.Local : '';
+            // Obter info do serviço — tem de existir nas referências, tal como
+            // no registo individual (v4.29.0; antes o batch gravava qualquer ID)
+            const servico = encontrarServico(servicoIdIntroduzido);
+            if (tServicos.length > 0 && !servico) {
+                mostrarAlerta('⚠️ ID de Serviço não existe nas referências.\n\nSelecione um serviço da lista para que os registos fiquem associados à descrição e local corretos.', 'warning');
+                document.getElementById('batchServicoId').focus();
+                return;
+            }
+            const servicoId = servico ? String(servico.ID_Servico) : servicoIdIntroduzido;
+            const servicoNome = servico ? (servico.Servico || '') : servicoIdIntroduzido;
+            const local = servico ? (servico.Local || '') : '';
             
             debugLog('🏥 Serviço encontrado:', servico);
             debugLog('🏥 Serviço processado:', { servicoId, servicoNome, local });
@@ -3488,44 +3495,43 @@
                 return;
             }
             
-            let registosAdicionados = 0;
-            let erros = 0;
+            const novos = [];
             const errosDetalhados = [];
+            const agoraISO = new Date().toISOString();
             
             linhas.forEach((linha, index) => {
-                const codigo = linha.querySelector('.batch-artigo-codigo').value.trim();
-                const armazem = linha.querySelector('.batch-artigo-armazem').value.trim();
+                const codigoIntroduzido = linha.querySelector('.batch-artigo-codigo').value.trim();
                 const idTag = linha.querySelector('.batch-artigo-tag').value.trim();
-                const qtdKanbans = parseInt(linha.querySelector('.batch-artigo-qtd').value) || 1;
+                const qtdKanbans = lerQtdKanbans(linha.querySelector('.batch-artigo-qtd').value);
                 const obsArtigo = linha.querySelector('.batch-artigo-obs').value.trim();
 
-                debugLog(`📦 Artigo ${index + 1}:`, { codigo, armazem, idTag, qtdKanbans, obsArtigo });
-                
-                if (!codigo || !armazem) {
-                    erros++;
-                    errosDetalhados.push(`Artigo ${index + 1}: Código ou Armazém em falta`);
-                    console.warn(`⚠️ Artigo ${index + 1} inválido - código: "${codigo}", armazém: "${armazem}"`);
+                // Mesma procura do registo individual: aceita o código sem os
+                // zeros à esquerda e grava a forma canónica das referências
+                const artigo = encontrarArtigo(codigoIntroduzido);
+                const armazem = artigo ? String(artigo.ARMAZEM || '') : '';
+
+                if (!codigoIntroduzido) {
+                    errosDetalhados.push(`Artigo ${index + 1}: Código em falta`);
                     return;
                 }
-
+                if (!artigo || !armazem) {
+                    errosDetalhados.push(`Artigo ${index + 1}: Código "${codigoIntroduzido}" não existe nas referências`);
+                    return;
+                }
+                if (qtdKanbans === null) {
+                    errosDetalhados.push(`Artigo ${index + 1}: Qtd Kanbans tem de ser um número inteiro maior que zero`);
+                    return;
+                }
                 if (exigeIdTag && !idTag) {
-                    erros++;
                     errosDetalhados.push(`Artigo ${index + 1}: ID Tag é obrigatório quando o Tipo de Erro é "ID Tag ilegível ou em falta"`);
                     return;
                 }
 
-                // Buscar descrição do artigo
-                const artigo = tArtigo.find(a => a.CODIGO === codigo);
-                const artigoDescricao = artigo ? (artigo.DESCRICAO_CODIGO || artigo.DESCRICAO || codigo) : codigo;
-                
-                debugLog(`📦 Artigo ${index + 1} - descrição encontrada:`, artigo ? artigoDescricao : 'Não encontrado');
-                
-                // Criar registo
-                const registo = {
+                novos.push({
                     uuid: gerarUUID(),
-                    id: Date.now() + registosAdicionados, // Evitar IDs duplicados
-                    timestamp: new Date().toISOString(),
-                    dataModificacao: new Date().toISOString(),
+                    id: Date.now() + novos.length, // Evitar IDs duplicados
+                    timestamp: agoraISO,
+                    dataModificacao: agoraISO,
                     data: data,
                     utilizadorUUID: utilizadorUUID,
                     utilizadorNome: utilizadorNome,
@@ -3533,8 +3539,8 @@
                     servicoId: servicoId,
                     servico: servicoNome,
                     local: local,
-                    artigo: codigo,
-                    artigoDescricao: artigoDescricao,
+                    artigo: String(artigo.CODIGO),
+                    artigoDescricao: artigo.DESCRICAO_CODIGO || artigo.DESCRICAO || String(artigo.CODIGO),
                     idTag: idTag,
                     armazem: armazem,
                     origem: origem,
@@ -3542,39 +3548,76 @@
                     tipoErro: tipoErro,
                     ultimoEstadoRFID: exigeUltimoEstadoRFID ? ultimoEstadoRFID : '',
                     obs: obsArtigo
-                };
-                
-                debugLog(`✅ Registo ${registosAdicionados + 1} criado:`, registo);
-                
-                registos.push(registo);
-                registosAdicionados++;
+                });
             });
-            
-            debugLog('📊 Resultado final:', { registosAdicionados, erros, totalRegistos: registos.length });
-            
-            if (registosAdicionados > 0) {
-                if (await salvarDados()) {
-                    let mensagem = `✅ Batch processado com sucesso! ${registosAdicionados} artigo(s) adicionado(s).`;
-                    if (erros > 0) {
-                        mensagem += `\n\n⚠️ ${erros} artigo(s) ignorado(s):\n${errosDetalhados.join('\n')}`;
-                    }
 
-                    mostrarAlerta(mensagem, 'success');
-                    limparBatch();
-                } else {
-                    // Gravação falhou: reverter os registos deste batch em memória
-                    // para não ficarem "adicionados" sem terem sido persistidos
-                    registos.splice(registos.length - registosAdicionados, registosAdicionados);
-                }
-                await atualizarInterface();
-            } else {
-                let mensagem = `❌ Nenhum artigo foi adicionado.`;
-                if (errosDetalhados.length > 0) {
-                    mensagem += `\n\nErros encontrados:\n${errosDetalhados.join('\n')}`;
-                }
-                mostrarAlerta(mensagem, 'error');
+            if (await gravarBatch(novos, errosDetalhados, `${novos.length} artigo(s) adicionado(s).`)) {
+                limparBatch();
             }
         };
+
+        /**
+         * Lê uma quantidade de kanbans escrita pelo operador.
+         * @param {*} valor
+         * @returns {number|null} inteiro ≥ 1, ou null se o valor não serve
+         *   (vazio, zero, negativo, decimal, texto). Antes da v4.29.0 o batch
+         *   usava `parseInt(valor) || 1`, que gravava quantidades negativas e
+         *   transformava em silêncio um campo vazio/zero em 1.
+         */
+        function lerQtdKanbans(valor) {
+            const texto = String(valor ?? '').trim();
+            if (!/^\d+$/.test(texto)) return null;
+            const n = parseInt(texto, 10);
+            return n >= 1 ? n : null;
+        }
+
+        /**
+         * Quantos registos de `novos` repetem um registo já gravado ou outro
+         * do mesmo batch (mesmos campos que validarDuplicados compara).
+         */
+        function contarDuplicadosBatch(novos) {
+            const chave = r => [r.data, r.servicoId, r.artigo, r.armazem, r.qtdKanbans, r.origem, r.tipoErro].join('\u0001');
+            const vistos = new Set();
+            let duplicados = 0;
+            novos.forEach(r => {
+                const k = chave(r);
+                if (vistos.has(k) || validarDuplicados(r)) duplicados++;
+                vistos.add(k);
+            });
+            return duplicados;
+        }
+
+        /**
+         * Passo final comum aos dois modos de batch (v4.29.0): tudo ou nada.
+         * Com uma linha inválida não grava nenhuma e deixa o formulário como
+         * está, para o operador corrigir — antes gravava as linhas válidas e
+         * limpava o formulário, perdendo as inválidas sem as mostrar de novo.
+         * Avisa de duplicados, como o registo individual.
+         * @returns {Promise<boolean>} true se os registos ficaram gravados
+         */
+        async function gravarBatch(novos, errosDetalhados, resumo) {
+            if (errosDetalhados.length > 0) {
+                mostrarAlerta(`❌ Batch não gravado — corrija ${errosDetalhados.length} linha(s):\n${errosDetalhados.join('\n')}`, 'error', 15000);
+                return false;
+            }
+
+            const duplicados = contarDuplicadosBatch(novos);
+            if (duplicados > 0 && !confirm(`⚠️ AVISO DE DUPLICADO\n\n${duplicados} de ${novos.length} linha(s) repetem um registo já existente (mesma data, serviço, artigo, quantidade, origem e tipo de erro).\n\nDeseja adicionar mesmo assim?`)) {
+                return false;
+            }
+
+            registos.push(...novos);
+            const gravado = await salvarDados();
+            if (gravado) {
+                mostrarAlerta(`✅ Batch processado com sucesso! ${resumo}`, 'success');
+            } else {
+                // Gravação falhou: reverter os registos deste batch em memória
+                // para não ficarem "adicionados" sem terem sido persistidos
+                registos.splice(registos.length - novos.length, novos.length);
+            }
+            await atualizarInterface();
+            return gravado;
+        }
         
         window.limparBatch = function() {
             const container = document.getElementById('batchArtigosContainer');
@@ -3704,7 +3747,7 @@
                 input._svcListenerAdded = true;
                 input.addEventListener('input', function() {
                     const codigo = this.value.trim();
-                    const artigo = tArtigo.find(a => a.CODIGO === codigo);
+                    const artigo = encontrarArtigo(codigo);
                     const hint = document.getElementById('batchSvcArtigoHint');
                     const armazem = document.getElementById('batchSvcArmazem');
                     if (artigo) {
@@ -3764,7 +3807,7 @@
             // Event listener para auto-completar nome do serviço
             input.addEventListener('input', function() {
                 const id = this.value.trim();
-                const servico = tServicos.find(s => s.ID_Servico === id);
+                const servico = encontrarServico(id);
                 const hint = linha.querySelector('.batch-svc-hint');
                 if (servico) {
                     hint.textContent = `✓ ${servico.Servico}${servico.Local ? ' - ' + servico.Local : ''}`;
@@ -3806,15 +3849,14 @@
             const data = document.getElementById('batchSvcData').value;
             const utilizadorSelect = document.getElementById('batchSvcUtilizador');
             const utilizadorUUID = utilizadorSelect.value;
-            const artigo = document.getElementById('batchSvcArtigo').value.trim();
-            const armazem = document.getElementById('batchSvcArmazem').value.trim();
+            const artigoIntroduzido = document.getElementById('batchSvcArtigo').value.trim();
             const idTag = document.getElementById('batchSvcIdTag').value.trim();
             const origem = document.getElementById('batchSvcOrigem').value;
             const tipoErro = document.getElementById('batchSvcTipoErro').value;
             const ultimoEstadoRFID = document.getElementById('batchSvcUltimoEstadoRFID').value;
             const exigeUltimoEstadoRFID = atualizarCampoUltimoEstadoRFID('batchSvcTipoErro', 'batchSvcUltimoEstadoRFIDGroup', 'batchSvcUltimoEstadoRFID');
             
-            if (!data || !utilizadorUUID || !artigo || !origem || !tipoErro) {
+            if (!data || !utilizadorUUID || !artigoIntroduzido || !origem || !tipoErro) {
                 mostrarAlerta('⚠️ Por favor, preencha todos os campos obrigatórios da secção "Informações Comuns"', 'warning');
                 return;
             }
@@ -3832,17 +3874,20 @@
                 return;
             }
 
-            if (!armazem) {
+            // Forma canónica das referências (aceita o código sem zeros à esquerda)
+            const artigoObj = encontrarArtigo(artigoIntroduzido);
+            const armazem = artigoObj ? String(artigoObj.ARMAZEM || '') : '';
+            if (!artigoObj || !armazem) {
                 mostrarAlerta('⚠️ Artigo não reconhecido ou armazém em falta. Certifique-se que o artigo existe no ficheiro de referência.', 'warning');
+                document.getElementById('batchSvcArtigo').focus();
                 return;
             }
+            const artigo = String(artigoObj.CODIGO);
+            const artigoDescricao = artigoObj.DESCRICAO_CODIGO || artigoObj.DESCRICAO || artigo;
             
             const selectedOption = utilizadorSelect.options[utilizadorSelect.selectedIndex];
             const utilizadorNome = selectedOption.dataset.nome || '';
             const utilizadorEmail = selectedOption.dataset.email || '';
-            
-            const artigoObj = tArtigo.find(a => a.CODIGO === artigo);
-            const artigoDescricao = artigoObj ? (artigoObj.DESCRICAO_CODIGO || artigoObj.DESCRICAO || artigo) : artigo;
             
             const container = document.getElementById('batchServicosContainer');
             const linhas = container.querySelectorAll('[id^="batch-svc-"]');
@@ -3852,36 +3897,42 @@
                 return;
             }
             
-            let registosAdicionados = 0;
-            let erros = 0;
+            const novos = [];
             const errosDetalhados = [];
+            const agoraISO = new Date().toISOString();
             
             linhas.forEach((linha, index) => {
-                const servicoId = linha.querySelector('.batch-svc-id').value.trim();
-                const qtdKanbans = parseInt(linha.querySelector('.batch-svc-qtd').value) || 1;
+                const servicoIdIntroduzido = linha.querySelector('.batch-svc-id').value.trim();
+                const qtdKanbans = lerQtdKanbans(linha.querySelector('.batch-svc-qtd').value);
                 
-                if (!servicoId) {
-                    erros++;
+                if (!servicoIdIntroduzido) {
                     errosDetalhados.push(`Serviço ${index + 1}: ID em falta`);
                     return;
                 }
+
+                // O serviço tem de existir nas referências, como no registo individual
+                const servicoObj = encontrarServico(servicoIdIntroduzido);
+                if (tServicos.length > 0 && !servicoObj) {
+                    errosDetalhados.push(`Serviço ${index + 1}: ID "${servicoIdIntroduzido}" não existe nas referências`);
+                    return;
+                }
+                if (qtdKanbans === null) {
+                    errosDetalhados.push(`Serviço ${index + 1}: Qtd Kanbans tem de ser um número inteiro maior que zero`);
+                    return;
+                }
                 
-                const servicoObj = tServicos.find(s => s.ID_Servico === servicoId);
-                const servicoNome = servicoObj ? servicoObj.Servico : servicoId;
-                const local = servicoObj ? servicoObj.Local : '';
-                
-                const registo = {
+                novos.push({
                     uuid: gerarUUID(),
-                    id: Date.now() + registosAdicionados,
-                    timestamp: new Date().toISOString(),
-                    dataModificacao: new Date().toISOString(),
+                    id: Date.now() + novos.length,
+                    timestamp: agoraISO,
+                    dataModificacao: agoraISO,
                     data: data,
                     utilizadorUUID: utilizadorUUID,
                     utilizadorNome: utilizadorNome,
                     utilizadorEmail: utilizadorEmail,
-                    servicoId: servicoId,
-                    servico: servicoNome,
-                    local: local,
+                    servicoId: servicoObj ? String(servicoObj.ID_Servico) : servicoIdIntroduzido,
+                    servico: servicoObj ? (servicoObj.Servico || '') : servicoIdIntroduzido,
+                    local: servicoObj ? (servicoObj.Local || '') : '',
                     artigo: artigo,
                     artigoDescricao: artigoDescricao,
                     idTag: idTag,
@@ -3890,29 +3941,12 @@
                     qtdKanbans: qtdKanbans,
                     tipoErro: tipoErro,
                     ultimoEstadoRFID: exigeUltimoEstadoRFID ? ultimoEstadoRFID : '',
-                    obs: `Batch serviços - registo ${registosAdicionados + 1}`
-                };
-                
-                registos.push(registo);
-                registosAdicionados++;
+                    obs: `Batch serviços - registo ${novos.length + 1}`
+                });
             });
-            
-            if (registosAdicionados > 0) {
-                if (await salvarDados()) {
-                    let mensagem = `✅ Batch processado com sucesso! ${registosAdicionados} serviço(s) registado(s) para o artigo ${artigo}.`;
-                    if (erros > 0) {
-                        mensagem += `\n\n⚠️ ${erros} linha(s) ignorada(s):\n${errosDetalhados.join('\n')}`;
-                    }
-                    mostrarAlerta(mensagem, 'success');
-                    limparBatchServicos();
-                } else {
-                    // Gravação falhou: reverter os registos deste batch em memória
-                    // para não ficarem "adicionados" sem terem sido persistidos
-                    registos.splice(registos.length - registosAdicionados, registosAdicionados);
-                }
-                await atualizarInterface();
-            } else {
-                mostrarAlerta(`❌ Nenhum registo foi adicionado.\n\nErros:\n${errosDetalhados.join('\n')}`, 'error');
+
+            if (await gravarBatch(novos, errosDetalhados, `${novos.length} serviço(s) registado(s) para o artigo ${artigo}.`)) {
+                limparBatchServicos();
             }
         };
 
@@ -4106,7 +4140,7 @@
                 // Criar backup JSON com o mesmo esquema usado pelo backup semanal
                 const backupRegistos = await criarObjetoBackup(timestamp);
                 
-                const dataBackup = new Date().toISOString().split('T')[0];
+                const dataBackup = formatarDataParaInput(new Date()); // data local, não UTC
                 const fileName = `Kanban_Backup_${dataBackup}.json`;
                 
                 // Criar conteúdo JSON
@@ -4206,18 +4240,33 @@
         // ==========================================
         // MOSTRAR ALERTAS
         // ==========================================
-        function mostrarAlerta(mensagem, tipo) {
+        let _alertaTimer = null;
+        /**
+         * @param {string} mensagem - texto; aceita \n, <br>, <strong> e <em>
+         * @param {string} tipo - 'success' | 'warning' | 'error' | 'info'
+         * @param {number} [duracaoMs] - tempo até o alerta se esconder
+         */
+        function mostrarAlerta(mensagem, tipo, duracaoMs = 5000) {
             const alertDiv = document.getElementById('importAlert');
             if (!alertDiv) { console.warn('importAlert não encontrado'); return; }
-            const classes = { 'success': 'alert-success', 'warning': 'alert-warning', 'info': 'alert-info' };
-            const icons = { 'success': '✅', 'warning': '⚠️', 'info': 'ℹ️' };
+            // 'error' não tinha estilo próprio e saía como informação azul (v4.29.0)
+            const classes = { 'success': 'alert-success', 'warning': 'alert-warning', 'error': 'alert-warning', 'info': 'alert-info' };
+            const icons = { 'success': '✅', 'warning': '⚠️', 'error': '❌', 'info': 'ℹ️' };
             alertDiv.className = `alert ${classes[tipo] || 'alert-info'}`;
             // Segurança: escapar a mensagem (pode conter dados de ficheiros importados);
-            // <br> e \n intencionais são repostos após o escape
-            const mensagemSegura = escapeHTML(String(mensagem)).replace(/&lt;br&gt;/gi, '<br>').replace(/\n/g, '<br>');
-            alertDiv.innerHTML = `<span>${icons[tipo] || 'ℹ️'}</span><span>${mensagemSegura}</span>`;
+            // só são repostos, após o escape, \n e as marcas sem atributos que as
+            // mensagens da app usam — <strong>/<em> apareciam como texto (v4.29.0)
+            const mensagemSegura = escapeHTML(String(mensagem))
+                .replace(/&lt;(\/?)(br|strong|em)&gt;/gi, '<$1$2>')
+                .replace(/\n/g, '<br>');
+            // A maioria das mensagens já começa por um ícone: não o repetir
+            const jaTemIcone = /^\s*\p{Extended_Pictographic}/u.test(String(mensagem));
+            alertDiv.innerHTML = `${jaTemIcone ? '' : `<span>${icons[tipo] || 'ℹ️'}</span>`}<span>${mensagemSegura}</span>`;
             alertDiv.classList.remove('hidden');
-            setTimeout(() => { alertDiv.classList.add('hidden'); }, 5000);
+            // Um alerta novo cancela o temporizador do anterior — senão era
+            // escondido antes do tempo pelo temporizador do alerta que substituiu
+            clearTimeout(_alertaTimer);
+            _alertaTimer = setTimeout(() => { alertDiv.classList.add('hidden'); }, duracaoMs);
         }
 
         // ==========================================
@@ -4342,7 +4391,7 @@
                         idTag: r['ID Tag'] || '',
                         armazem: r['Armazém'] || '',
                         origem: r.Origem || '',
-                        qtdKanbans: parseInt(r['Quantidade Kanbans']) || 1,
+                        qtdKanbans: lerQtdKanbans(r['Quantidade Kanbans']) ?? 1,
                         tipoErro: r['Tipo Erro'] || '',
                         ultimoEstadoRFID: r['Ultimo Estado do RFID'] || r['Último Estado do RFID'] || '',
                         obs: r['Observações'] || '',
@@ -4486,6 +4535,16 @@
                             return;
                         }
 
+                        // Entradas que não são registos (null, texto, …) num ficheiro
+                        // editado à mão faziam a importação rebentar a meio, já com
+                        // parte dos registos em memória; as tabelas de referência
+                        // têm de ser listas pelo mesmo motivo (v4.29.0)
+                        backup.registos = filtrarRegistosUtilizaveis(backup.registos);
+                        ['tArtigo', 'tServicos', 'tUtilizadores', 'tErros', 'tOrigem'].forEach(t => {
+                            if (!Array.isArray(backup[t])) delete backup[t];
+                            else backup[t] = backup[t].filter(item => item && typeof item === 'object');
+                        });
+
                         const totalBackup = backup.registos.length;
                         const dataBackup = backup.dataBackup
                             ? new Date(backup.dataBackup).toLocaleString('pt-PT')
@@ -4527,10 +4586,14 @@
                             });
 
                             tArtigo       = mergeReferencia(tArtigo,       backup.tArtigo,       'CODIGO');
-                            tServicos     = mergeReferencia(tServicos,     backup.tServicos,     'ID_SERVICO');
-                            tUtilizadores = mergeReferencia(tUtilizadores, backup.tUtilizadores, 'UUID_UTILIZADOR');
-                            tErros        = mergeReferencia(tErros,        backup.tErros,        'CODIGO_ERRO');
-                            tOrigem       = mergeReferencia(tOrigem,       backup.tOrigem,       'ID_ORIGEM');
+                            // Chaves no formato interno (ID_Servico, UUID, Codigo, Nome):
+                            // existem sempre, ao contrário das colunas do Excel
+                            // (ID_SERVICO, …) — as origens por omissão não têm
+                            // ID_ORIGEM e duplicavam a cada concatenação (v4.29.0)
+                            tServicos     = mergeReferencia(tServicos,     backup.tServicos,     'ID_Servico');
+                            tUtilizadores = mergeReferencia(tUtilizadores, backup.tUtilizadores, 'UUID');
+                            tErros        = mergeReferencia(tErros,        backup.tErros,        'Codigo');
+                            tOrigem       = mergeReferencia(tOrigem,       backup.tOrigem,       'Nome');
                         } else {
                             // Substituir dados
                             registos = backup.registos || [];
@@ -5235,7 +5298,7 @@
             if (input) {
                 input.addEventListener('input', function() {
                     const id = this.value.trim();
-                    const servico = tServicos.find(s => s.ID_Servico === id);
+                    const servico = encontrarServico(id);
                     const hint = document.getElementById('batchServicoHint');
                     
                     if (hint) {
@@ -8651,8 +8714,10 @@
                         const primeiroDia = new Date(ano, mes, 1);
                         const ultimoDia = new Date(ano, mes + 1, 0);
                         
-                        dataInicio = primeiroDia.toISOString().split('T')[0];
-                        dataFim = ultimoDia.toISOString().split('T')[0];
+                        // Datas locais: toISOString() converte para UTC e, na hora de
+                        // verão, recuava um dia (julho = 30 jun a 30 jul) — v4.29.0
+                        dataInicio = formatarDataParaInput(primeiroDia);
+                        dataFim = formatarDataParaInput(ultimoDia);
                     } else {
                         // Fallback para mês atual
                         const hoje = new Date();
@@ -8661,8 +8726,10 @@
                         const primeiroDia = new Date(ano, mes, 1);
                         const ultimoDia = new Date(ano, mes + 1, 0);
                         
-                        dataInicio = primeiroDia.toISOString().split('T')[0];
-                        dataFim = ultimoDia.toISOString().split('T')[0];
+                        // Datas locais: toISOString() converte para UTC e, na hora de
+                        // verão, recuava um dia (julho = 30 jun a 30 jul) — v4.29.0
+                        dataInicio = formatarDataParaInput(primeiroDia);
+                        dataFim = formatarDataParaInput(ultimoDia);
                         
                         const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                                        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -9120,7 +9187,7 @@
                 const atividadeDia = new Array(7).fill(0);
                 registosFiltrados.forEach(r => {
                     if (r.data) {
-                        const dia = new Date(r.data).getDay();
+                        const dia = new Date(r.data + 'T12:00:00').getDay();
                         atividadeDia[dia]++;
                     }
                 });
@@ -9170,7 +9237,7 @@
                 const atividadeDiaMes = new Array(31).fill(0);
                 registosFiltrados.forEach(r => {
                     if (r.data) {
-                        const diaMes = new Date(r.data).getDate();
+                        const diaMes = new Date(r.data + 'T12:00:00').getDate();
                         if (diaMes >= 1 && diaMes <= 31) {
                             atividadeDiaMes[diaMes - 1]++;
                         }
