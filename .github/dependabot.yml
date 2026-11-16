@@ -1,0 +1,18 @@
+# Atualizações automáticas. Um PR por grupo, no máximo uma vez por mês.
+# A única dependência é o Playwright (testes de browser); o resto são as ações do CI.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      npm:
+        patterns: ['*']
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      github-actions:
+        patterns: ['*']
