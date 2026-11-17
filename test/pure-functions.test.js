@@ -493,3 +493,62 @@ describe('lerQtdKanbans (v4.29.0)', () => {
         test(`${JSON.stringify(valor)} é rejeitado`, () => assert.equal(lerQtdKanbans(valor), null));
     }
 });
+
+// Backup automático na pasta partilhada (v4.32.0): as regras de conflito e de cópias.
+describe('backup na pasta partilhada', () => {
+    const base = 'impreskanban_backup';
+    const f = carregarFuncoesPuras(
+        ['pastaDois', 'nomeDaCopia', 'dataDaCopia', 'copiasParaApagar', 'resumoDoBackup', 'haConflito', 'idadeFaceAPartida', 'deveCopiar'],
+        {
+            PASTA_BASE: base, PASTA_COPIAS_DIAS: 30, PASTA_COPIAS_MINIMO: 10, PASTA_COPIA_PROPRIA_MS: 3600000,
+            PASTA_PADRAO_COPIA: new RegExp('^' + base + '_\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}\\.json$'),
+        });
+
+    test('nomeDaCopia usa a data local da versão copiada', () => {
+        assert.equal(f.nomeDaCopia(new Date(2026, 10, 11, 21, 30, 5)), 'impreskanban_backup_2026-11-11_21-30-05.json');
+    });
+
+    test('copiasParaApagar: só cópias, com mais de 30 dias, e as 10 mais recentes ficam sempre', () => {
+        const agora = new Date(2026, 10, 17).getTime();
+        const nome = d => f.nomeDaCopia(new Date(2026, 10, 17 - d));
+        const velhas = Array.from({ length: 12 }, (_, i) => nome(40 + i));
+        // 12 antigas + uma recente: as 10 mais recentes são as 9 mais novas das antigas + a recente
+        const nomes = [...velhas, nome(1), 'impreskanban_backup.json', 'outro.json'];
+        const apagar = f.copiasParaApagar(nomes, agora);
+        assert.equal(apagar.length, 3);
+        assert.ok(apagar.every(n => velhas.includes(n)));
+        assert.deepEqual(f.copiasParaApagar([nome(60), nome(50)], agora), []);   // abaixo do mínimo
+    });
+
+    test('resumoDoBackup lê updatedAt e a contagem de registos (ou de auditorias)', () => {
+        assert.deepEqual(
+            { u: f.resumoDoBackup('{"updatedAt":"2026-11-11T10:00:00.000Z","registos":[{},{}]}', 0).updatedAt, c: f.resumoDoBackup('{"updatedAt":"2026-11-11T10:00:00.000Z","registos":[{},{}]}', 0).count },
+            { u: '2026-11-11T10:00:00.000Z', c: 2 });
+        assert.equal(f.resumoDoBackup('{"audits":[{}]}', 0).count, 1);
+        const lixo = f.resumoDoBackup('não é json', 1000);
+        assert.equal(lixo.updatedAt, null);
+        assert.equal(lixo.count, null);
+    });
+
+    test('haConflito: sem ficheiro não há; sem versão de partida há sempre; senão compara o updatedAt', () => {
+        assert.equal(f.haConflito({ existe: false }, null), false);
+        assert.equal(f.haConflito({ existe: true, updatedAt: 'A' }, null), true);
+        assert.equal(f.haConflito({ existe: true, updatedAt: 'A' }, 'A'), false);
+        assert.equal(f.haConflito({ existe: true, updatedAt: 'B' }, 'A'), true);
+    });
+
+    test('idadeFaceAPartida distingue mais recente, mais antiga e desconhecida', () => {
+        assert.equal(f.idadeFaceAPartida('2026-11-12T00:00:00Z', '2026-11-11T00:00:00Z'), 'mais-recente');
+        assert.equal(f.idadeFaceAPartida('2026-11-10T00:00:00Z', '2026-11-11T00:00:00Z'), 'mais-antiga');
+        assert.equal(f.idadeFaceAPartida(null, '2026-11-11T00:00:00Z'), 'desconhecida');
+    });
+
+    test('deveCopiar: de outra origem sempre; da própria só de hora a hora', () => {
+        const actual = { existe: true, updatedAt: 'A' };
+        assert.equal(f.deveCopiar({ existe: false }, null, null), false);
+        assert.equal(f.deveCopiar(actual, 'B', 1000, 2000), true);
+        assert.equal(f.deveCopiar(actual, 'A', null, 2000), true);
+        assert.equal(f.deveCopiar(actual, 'A', 1000, 2000), false);
+        assert.equal(f.deveCopiar(actual, 'A', 0, 3600000), true);
+    });
+});

@@ -75,7 +75,7 @@
     </script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.31.0 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.32.0 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
 
            Histórico de versões: versao.md (o changelog que estava aqui
@@ -2660,6 +2660,25 @@
                     <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: var(--space-md);" id="backupInfo">
                         Último backup: <span id="backupTimestamp">Nunca</span>
                     </div>
+                    <div id="backupPastaBloco" style="margin-bottom: var(--space-md);">
+                        <div style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0.35rem;">📁 Backup na pasta partilhada</div>
+                        <div id="backupPastaEstado" role="status" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;"></div>
+                        <div class="alert alert-warning hidden" id="backupPastaAviso" role="alert" style="flex-direction: column; align-items: stretch; gap: 0.5rem;">
+                            <span id="backupPastaAvisoTxt"></span>
+                            <span class="button-group">
+                                <button class="btn btn-primary" id="btnBackupPastaAbrir" type="button">📂 Abrir a versão da pasta…</button>
+                                <button class="btn btn-secondary" id="btnBackupPastaPorCima" type="button">Gravar por cima…</button>
+                            </span>
+                        </div>
+                        <div class="button-group" style="flex-direction: column;">
+                            <button class="btn btn-secondary" id="btnBackupPasta" type="button">Escolher pasta</button>
+                            <button class="btn btn-secondary" id="btnBackupPastaAgora" type="button" disabled>💾 Gravar agora na pasta</button>
+                            <button class="btn btn-secondary" id="btnBackupPastaOff" type="button" style="display: none;">Deixar de usar a pasta</button>
+                        </div>
+                        <label style="display: flex; gap: 0.5rem; align-items: center; font-size: 0.85rem; margin-top: 0.5rem;">
+                            <input type="checkbox" id="chkBackupPastaAuto" checked> Gravar sozinho, uns segundos depois de cada alteração
+                        </label>
+                    </div>
                     <div class="button-group" style="flex-direction: column;">
                         <button class="btn btn-primary" onclick="fazerBackup()">
                             💾 Fazer Backup (JSON)
@@ -2847,6 +2866,10 @@
             const semanaGuardada = await storageGet(STORAGE_BACKUP_SEMANAL);
 
             if (semanaGuardada === semanaAtual) return; // Backup já feito esta semana
+
+            // v4.32.0: com a pasta partilhada a gravar sozinha, o backup semanal está feito
+            await backupPastaPronto;
+            if (backupPasta.emDia()) { await storageSet(STORAGE_BACKUP_SEMANAL, semanaAtual); return; }
 
             // Atualizar dados do modal
             const totalKanbans = registos.reduce((s, r) => s + (r.qtdKanbans || 1), 0);
@@ -4058,6 +4081,7 @@
             universoKanbans = await storageGetJSON(STORAGE_UNIVERSO, {}, v => v && typeof v === 'object' && !Array.isArray(v));
             ligarUniversoPainel();
             ligarPainelEink();
+            ligarBackupPasta();   // v4.32.0: backup automático na pasta partilhada
 
             // Verificar se é dia de backup semanal (v4.9.1)
             // Pequeno delay para garantir que registos já estão carregados
@@ -4553,6 +4577,143 @@
             return resultado;
         }
 
+        // O corpo da importação do JSON, separado do ficheiro: o backup da pasta partilhada também passa por aqui.
+        // Devolve true se os dados foram aplicados e gravados.
+        async function importarBackupTexto(texto) {
+            try {
+                const backup = JSON.parse(texto);
+
+                // Validação mínima — tem de ser um array; um objeto/string
+                // truthy não pode passar, ou corrompe o estado global antes
+                // do .map() de migração lançar (catch não desfaz a atribuição)
+                if (!Array.isArray(backup.registos)) {
+                    mostrarAlerta('❌ Ficheiro JSON inválido: campo "registos" em falta ou não é uma lista.', 'warning');
+                    return;
+                }
+
+                // Entradas que não são registos (null, texto, …) num ficheiro
+                // editado à mão faziam a importação rebentar a meio, já com
+                // parte dos registos em memória; as tabelas de referência
+                // têm de ser listas pelo mesmo motivo (v4.29.0)
+                backup.registos = filtrarRegistosUtilizaveis(backup.registos);
+                ['tArtigo', 'tServicos', 'tUtilizadores', 'tErros', 'tOrigem'].forEach(t => {
+                    if (!Array.isArray(backup[t])) delete backup[t];
+                    else backup[t] = backup[t].filter(item => item && typeof item === 'object');
+                });
+
+                const totalBackup = backup.registos.length;
+                const dataBackup = backup.dataBackup
+                    ? new Date(backup.dataBackup).toLocaleString('pt-PT')
+                    : 'desconhecida';
+
+                if (!confirm(
+                    `Importar backup JSON?\n\n` +
+                    `Data do backup: ${dataBackup}\n` +
+                    `Registos no backup: ${totalBackup}\n` +
+                    `Registos atuais: ${registos.length}`
+                )) return;
+
+                const concatenar = confirm(
+                    `Concatenar com os dados atuais?\n\n` +
+                    `OK = Concatenar (junta os registos do backup aos atuais, sem duplicar por UUID)\n` +
+                    `Cancelar = Substituir (os dados atuais serão APAGADOS e substituídos pelos do backup)`
+                );
+
+                let registosAdicionados = 0;
+
+                // Guardar estado anterior para reverter se a gravação falhar
+                // (ex.: quota esgotada) e não perder os dados atuais em memória.
+                // registos é copiado porque o modo "concatenar" faz push() no
+                // próprio array, o que corromperia uma referência direta.
+                const estadoAnterior = {
+                    registos: registos.slice(), tArtigo, tServicos, tUtilizadores, tErros, tOrigem
+                };
+
+                if (concatenar) {
+                    // Concatenar: juntar registos, evitando duplicados por UUID
+                    const uuidsAtuais = new Set(registos.map(r => r.uuid).filter(Boolean));
+                    (backup.registos || []).forEach(r => {
+                        if (!r.uuid) r.uuid = gerarUUID();
+                        if (!uuidsAtuais.has(r.uuid)) {
+                            registos.push(r);
+                            uuidsAtuais.add(r.uuid);
+                            registosAdicionados++;
+                        }
+                    });
+
+                    tArtigo       = mergeReferencia(tArtigo,       backup.tArtigo,       'CODIGO');
+                    // Chaves no formato interno (ID_Servico, UUID, Codigo, Nome):
+                    // existem sempre, ao contrário das colunas do Excel
+                    // (ID_SERVICO, …) — as origens por omissão não têm
+                    // ID_ORIGEM e duplicavam a cada concatenação (v4.29.0)
+                    tServicos     = mergeReferencia(tServicos,     backup.tServicos,     'ID_Servico');
+                    tUtilizadores = mergeReferencia(tUtilizadores, backup.tUtilizadores, 'UUID');
+                    tErros        = mergeReferencia(tErros,        backup.tErros,        'Codigo');
+                    tOrigem       = mergeReferencia(tOrigem,       backup.tOrigem,       'Nome');
+                } else {
+                    // Substituir dados
+                    registos = backup.registos || [];
+                    registosAdicionados = registos.length;
+                    if (backup.tArtigo)       { tArtigo       = backup.tArtigo;       }
+                    if (backup.tServicos)     { tServicos     = backup.tServicos;     }
+                    if (backup.tUtilizadores) { tUtilizadores = backup.tUtilizadores; }
+                    if (backup.tErros)        { tErros        = backup.tErros;        }
+                    if (backup.tOrigem)       { tOrigem       = backup.tOrigem;       }
+                }
+
+                // Best-effort: falhar aqui não deve ser reportado como
+                // "erro ao ler o ficheiro JSON" (é a gravação que falhou)
+                if (backup.citacaoIndex) {
+                    storageSet(STORAGE_CITACAO_INDEX, backup.citacaoIndex);
+                }
+
+                // Migração: garantir UUIDs
+                registos = registos.map(r => {
+                    if (!r.uuid) r.uuid = gerarUUID();
+                    if (!r.dataModificacao) r.dataModificacao = r.timestamp || new Date().toISOString();
+                    return r;
+                });
+
+                if (await salvarDados()) {
+                    await salvarReferencias();
+                    await atualizarInterface();
+                    await atualizarInterfaceReferencias();
+                    popularDataLists();
+                    popularUtilizadores();
+                    popularErros();
+                    popularOrigens();
+
+                    mostrarAlerta(
+                        concatenar
+                            ? `✅ Backup concatenado com sucesso!<br>` +
+                              `<strong>Registos novos adicionados:</strong> ${registosAdicionados}<br>` +
+                              `<strong>Total de registos:</strong> ${registos.length}<br>` +
+                              `<strong>Kanbans:</strong> ${registos.reduce((s,r) => s + (r.qtdKanbans||1), 0)}`
+                            : `✅ Backup restaurado com sucesso!<br>` +
+                              `<strong>Registos recuperados:</strong> ${registos.length}<br>` +
+                              `<strong>Kanbans:</strong> ${registos.reduce((s,r) => s + (r.qtdKanbans||1), 0)}`,
+                        'success'
+                    );
+                    return true;
+                } else {
+                    // Gravação falhou: reverter tudo para o estado anterior
+                    // em vez de deixar a app com dados só em memória
+                    registos = estadoAnterior.registos;
+                    tArtigo = estadoAnterior.tArtigo;
+                    tServicos = estadoAnterior.tServicos;
+                    tUtilizadores = estadoAnterior.tUtilizadores;
+                    tErros = estadoAnterior.tErros;
+                    tOrigem = estadoAnterior.tOrigem;
+                    await atualizarInterface();
+                    return false;
+                }
+
+            } catch (err) {
+                mostrarAlerta('❌ Erro ao ler ficheiro JSON: ' + err.message, 'warning');
+                return false;
+            }
+        }
+
         function importarBackup(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -4561,137 +4722,7 @@
 
             if (ext === 'json') {
                 const reader = new FileReader();
-                reader.onload = async function(e) {
-                    try {
-                        const backup = JSON.parse(e.target.result);
-
-                        // Validação mínima — tem de ser um array; um objeto/string
-                        // truthy não pode passar, ou corrompe o estado global antes
-                        // do .map() de migração lançar (catch não desfaz a atribuição)
-                        if (!Array.isArray(backup.registos)) {
-                            mostrarAlerta('❌ Ficheiro JSON inválido: campo "registos" em falta ou não é uma lista.', 'warning');
-                            return;
-                        }
-
-                        // Entradas que não são registos (null, texto, …) num ficheiro
-                        // editado à mão faziam a importação rebentar a meio, já com
-                        // parte dos registos em memória; as tabelas de referência
-                        // têm de ser listas pelo mesmo motivo (v4.29.0)
-                        backup.registos = filtrarRegistosUtilizaveis(backup.registos);
-                        ['tArtigo', 'tServicos', 'tUtilizadores', 'tErros', 'tOrigem'].forEach(t => {
-                            if (!Array.isArray(backup[t])) delete backup[t];
-                            else backup[t] = backup[t].filter(item => item && typeof item === 'object');
-                        });
-
-                        const totalBackup = backup.registos.length;
-                        const dataBackup = backup.dataBackup
-                            ? new Date(backup.dataBackup).toLocaleString('pt-PT')
-                            : 'desconhecida';
-
-                        if (!confirm(
-                            `Importar backup JSON?\n\n` +
-                            `Data do backup: ${dataBackup}\n` +
-                            `Registos no backup: ${totalBackup}\n` +
-                            `Registos atuais: ${registos.length}`
-                        )) return;
-
-                        const concatenar = confirm(
-                            `Concatenar com os dados atuais?\n\n` +
-                            `OK = Concatenar (junta os registos do backup aos atuais, sem duplicar por UUID)\n` +
-                            `Cancelar = Substituir (os dados atuais serão APAGADOS e substituídos pelos do backup)`
-                        );
-
-                        let registosAdicionados = 0;
-
-                        // Guardar estado anterior para reverter se a gravação falhar
-                        // (ex.: quota esgotada) e não perder os dados atuais em memória.
-                        // registos é copiado porque o modo "concatenar" faz push() no
-                        // próprio array, o que corromperia uma referência direta.
-                        const estadoAnterior = {
-                            registos: registos.slice(), tArtigo, tServicos, tUtilizadores, tErros, tOrigem
-                        };
-
-                        if (concatenar) {
-                            // Concatenar: juntar registos, evitando duplicados por UUID
-                            const uuidsAtuais = new Set(registos.map(r => r.uuid).filter(Boolean));
-                            (backup.registos || []).forEach(r => {
-                                if (!r.uuid) r.uuid = gerarUUID();
-                                if (!uuidsAtuais.has(r.uuid)) {
-                                    registos.push(r);
-                                    uuidsAtuais.add(r.uuid);
-                                    registosAdicionados++;
-                                }
-                            });
-
-                            tArtigo       = mergeReferencia(tArtigo,       backup.tArtigo,       'CODIGO');
-                            // Chaves no formato interno (ID_Servico, UUID, Codigo, Nome):
-                            // existem sempre, ao contrário das colunas do Excel
-                            // (ID_SERVICO, …) — as origens por omissão não têm
-                            // ID_ORIGEM e duplicavam a cada concatenação (v4.29.0)
-                            tServicos     = mergeReferencia(tServicos,     backup.tServicos,     'ID_Servico');
-                            tUtilizadores = mergeReferencia(tUtilizadores, backup.tUtilizadores, 'UUID');
-                            tErros        = mergeReferencia(tErros,        backup.tErros,        'Codigo');
-                            tOrigem       = mergeReferencia(tOrigem,       backup.tOrigem,       'Nome');
-                        } else {
-                            // Substituir dados
-                            registos = backup.registos || [];
-                            registosAdicionados = registos.length;
-                            if (backup.tArtigo)       { tArtigo       = backup.tArtigo;       }
-                            if (backup.tServicos)     { tServicos     = backup.tServicos;     }
-                            if (backup.tUtilizadores) { tUtilizadores = backup.tUtilizadores; }
-                            if (backup.tErros)        { tErros        = backup.tErros;        }
-                            if (backup.tOrigem)       { tOrigem       = backup.tOrigem;       }
-                        }
-
-                        // Best-effort: falhar aqui não deve ser reportado como
-                        // "erro ao ler o ficheiro JSON" (é a gravação que falhou)
-                        if (backup.citacaoIndex) {
-                            storageSet(STORAGE_CITACAO_INDEX, backup.citacaoIndex);
-                        }
-
-                        // Migração: garantir UUIDs
-                        registos = registos.map(r => {
-                            if (!r.uuid) r.uuid = gerarUUID();
-                            if (!r.dataModificacao) r.dataModificacao = r.timestamp || new Date().toISOString();
-                            return r;
-                        });
-
-                        if (await salvarDados()) {
-                            await salvarReferencias();
-                            await atualizarInterface();
-                            await atualizarInterfaceReferencias();
-                            popularDataLists();
-                            popularUtilizadores();
-                            popularErros();
-                            popularOrigens();
-
-                            mostrarAlerta(
-                                concatenar
-                                    ? `✅ Backup concatenado com sucesso!<br>` +
-                                      `<strong>Registos novos adicionados:</strong> ${registosAdicionados}<br>` +
-                                      `<strong>Total de registos:</strong> ${registos.length}<br>` +
-                                      `<strong>Kanbans:</strong> ${registos.reduce((s,r) => s + (r.qtdKanbans||1), 0)}`
-                                    : `✅ Backup restaurado com sucesso!<br>` +
-                                      `<strong>Registos recuperados:</strong> ${registos.length}<br>` +
-                                      `<strong>Kanbans:</strong> ${registos.reduce((s,r) => s + (r.qtdKanbans||1), 0)}`,
-                                'success'
-                            );
-                        } else {
-                            // Gravação falhou: reverter tudo para o estado anterior
-                            // em vez de deixar a app com dados só em memória
-                            registos = estadoAnterior.registos;
-                            tArtigo = estadoAnterior.tArtigo;
-                            tServicos = estadoAnterior.tServicos;
-                            tUtilizadores = estadoAnterior.tUtilizadores;
-                            tErros = estadoAnterior.tErros;
-                            tOrigem = estadoAnterior.tOrigem;
-                            await atualizarInterface();
-                        }
-
-                    } catch (err) {
-                        mostrarAlerta('❌ Erro ao ler ficheiro JSON: ' + err.message, 'warning');
-                    }
-                };
+                reader.onload = e => importarBackupTexto(e.target.result);
                 reader.onerror = () => mostrarAlerta('❌ Erro ao ler o ficheiro.', 'warning');
                 reader.readAsText(file);
                 // Reset só agora: o FileReader já capturou o ficheiro, por isso
@@ -4984,6 +5015,7 @@
                 storageSetJSON(STORAGE_REF_ERROS, tErros),
                 storageSetJSON(STORAGE_REF_ORIGEM, tOrigem),  // NOVO: Salvar origens
             ]);
+            if (resultados.every(r => r.ok)) backupPasta.alterado();   // v4.32.0: as referências também vão no backup da pasta
             const falha = resultados.find(r => !r.ok);
             if (falha) {
                 mostrarAlertaReferencia(
@@ -6062,6 +6094,7 @@
             // fazer parecer que os registos acima não foram gravados
             await storageSet(STORAGE_KEY + '_version', APP_VERSION);
             agendarPainel();   // v4.24.0: o resumo do painel e-ink acompanha os registos
+            backupPasta.alterado();   // v4.32.0: e o backup da pasta partilhada
             return true;
         }
 
@@ -6352,6 +6385,441 @@
             try { if (localStorage.getItem(CHAVE_ENVIO_PAINEL) === hoje) return; } catch (e) { /* sem storage: envia na mesma */ }
             try { localStorage.setItem(CHAVE_ENVIO_PAINEL, hoje); } catch (e) { /* ignora */ }
             painelEink.escrever(dadosPainelKanban(registos, agora, descricaoTipoErro, universoKanbans), true);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // BACKUP AUTOMÁTICO NA PASTA PARTILHADA
+        //
+        // Cópia adaptada do mecanismo da app «supermercados» (src/app/nucleo/pasta-backup.js
+        // e src/app/ui/app/use-backup-na-pasta.js): quem se esquecia de exportar um backup
+        // perdia o trabalho, e com várias pessoas na mesma pasta «a última a gravar apaga as
+        // outras». Com a pasta escolhida uma vez (fica lembrada neste browser):
+        //   · cada alteração é gravada em `impreskanban_backup.json` uns segundos depois (agrupa edições seguidas);
+        //   · antes de gravar relê o ficheiro: se OUTRA pessoa o gravou depois da versão de onde
+        //     estes dados partiram (o `updatedAt` do envelope), pára e avisa — nunca grava por cima
+        //     em silêncio. «Gravar por cima…» pergunta; «Abrir a versão da pasta…» passa pela
+        //     importação normal da app (que pergunta se junta ou substitui);
+        //   · antes de substituir o ficheiro, copia a versão que lá está para `copias-backup/`
+        //     (com a data dela no nome) e guarda as dos últimos 30 dias;
+        //   · de 2 em 2 minutos, e ao voltar ao separador, relê o ficheiro: se mudou, avisa logo.
+        // Só no Chrome ou no Edge de computador (File System Access API).
+        // ─────────────────────────────────────────────────────────────────────────────
+        const PASTA_BASE = 'impreskanban_backup';
+        const PASTA_FICHEIRO = PASTA_BASE + '.json';
+        const PASTA_COPIAS = 'copias-backup';
+        const PASTA_IDB = 'impreskanban:pasta-backup';
+        const PASTA_CHAVE_AUTO = 'impreskanban.gravacaoAutomatica';
+        const PASTA_CHAVE_BASE = 'impreskanban.backupBase';
+        const PASTA_CHAVE_PENDENTE = 'impreskanban.backupPendente';
+        const PASTA_PAUSA_MS = 4000;
+        const PASTA_VIGIA_MS = 2 * 60 * 1000;
+        const PASTA_COPIAS_DIAS = 30;
+        const PASTA_COPIAS_MINIMO = 10;
+        const PASTA_COPIA_PROPRIA_MS = 60 * 60 * 1000;
+        const PASTA_PADRAO_COPIA = new RegExp('^' + PASTA_BASE + '_\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}\\.json$');
+
+        function pastaDois(n) { return String(n).padStart(2, '0'); }
+
+        /** `<base>_2026-11-11_21-30-05.json` — a data local da versão copiada. */
+        function nomeDaCopia(data) {
+          const d = data instanceof Date ? data : new Date(data);
+          return PASTA_BASE + '_' + d.getFullYear() + '-' + pastaDois(d.getMonth() + 1) + '-' + pastaDois(d.getDate()) +
+            '_' + pastaDois(d.getHours()) + '-' + pastaDois(d.getMinutes()) + '-' + pastaDois(d.getSeconds()) + '.json';
+        }
+
+        /** A data (local) que o nome de uma cópia traz, ou null. */
+        function dataDaCopia(nome) {
+          const m = /_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})\.json$/.exec(nome);
+          return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]) : null;
+        }
+
+        /** As cópias a apagar: as com mais de `dias` dias, excepto as `minimo` mais recentes. Ignora o que não for cópia. */
+        function copiasParaApagar(nomes, agora = Date.now(), dias = PASTA_COPIAS_DIAS, minimo = PASTA_COPIAS_MINIMO) {
+          const copias = nomes.filter(n => PASTA_PADRAO_COPIA.test(n)).sort();
+          const limite = agora - dias * 86400000;
+          return copias.slice(0, Math.max(0, copias.length - minimo))
+            .filter(n => { const d = dataDaCopia(n); return d !== null && d.getTime() < limite; });
+        }
+
+        /**
+         * O que o ficheiro da pasta diz de si: quando foi gravado e quantos registos tem.
+         * `updatedAt` é o do envelope, não a data do ficheiro — uma pasta sincronizada
+         * (OneDrive, SharePoint) muda a data do ficheiro ao sincronizar.
+         */
+        function resumoDoBackup(texto, lastModified) {
+          let updatedAt = null, count = null;
+          try {
+            const j = JSON.parse(texto);
+            if (typeof j?.updatedAt === 'string' && !Number.isNaN(Date.parse(j.updatedAt))) updatedAt = j.updatedAt;
+            const lista = Array.isArray(j) ? j : (j?.registos || j?.audits);
+            if (Array.isArray(lista)) count = lista.length;
+          } catch (e) { /* não é JSON: fica sem data nem contagem */ }
+          return { updatedAt, count, data: updatedAt ? new Date(updatedAt) : new Date(lastModified || Date.now()) };
+        }
+
+        /**
+         * Há conflito quando o ficheiro da pasta não é a versão de onde os dados em memória
+         * partiram. Sem versão de partida conhecida, qualquer ficheiro que lá esteja conta:
+         * é preferível perguntar a mais do que sobrepor o trabalho de outra pessoa.
+         */
+        function haConflito(actual, versaoDePartida) {
+          if (!actual?.existe) return false;
+          return !versaoDePartida || actual.updatedAt !== versaoDePartida;
+        }
+
+        /** A versão da pasta, face à de partida: 'mais-recente', 'mais-antiga' ou 'desconhecida'. */
+        function idadeFaceAPartida(updatedAtDaPasta, versaoDePartida) {
+          const a = Date.parse(updatedAtDaPasta), b = Date.parse(versaoDePartida);
+          if (Number.isNaN(a) || Number.isNaN(b)) return 'desconhecida';
+          return a > b ? 'mais-recente' : a < b ? 'mais-antiga' : 'desconhecida';
+        }
+
+        /**
+         * A versão que está na pasta deve ser copiada antes de ser substituída? De outra origem:
+         * sempre. Gravada por esta página (`propria`): só se a última cópia tiver mais de uma hora
+         * (copiar todas enchia a pasta de versões intermédias).
+         */
+        function deveCopiar(actual, propria, ultimaCopiaEm, agora = Date.now()) {
+          if (!actual?.existe) return false;
+          if (!propria || actual.updatedAt !== propria) return true;
+          return ultimaCopiaEm === null || ultimaCopiaEm === undefined || agora - ultimaCopiaEm >= PASTA_COPIA_PROPRIA_MS;
+        }
+
+        function criarPastaBackup() {
+          const suportado = typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function';
+          let handle = null, estado = suportado ? 'sem' : 'indisponivel', erro = '';
+          let ultimaCopiaEm = null;
+          const ouvintes = new Set();
+          const info = () => ({ estado, erro, pasta: handle ? (handle.name || 'pasta escolhida') : '', ficheiro: PASTA_FICHEIRO });
+          const mudar = (novo, msg = '') => {
+            estado = novo; erro = msg;
+            for (const f of ouvintes) { try { f(info()); } catch (e) { /* um ouvinte não estraga os outros */ } }
+          };
+
+          function idb(modo, fn) {
+            return new Promise((resolve, reject) => {
+              if (typeof indexedDB === 'undefined' || !indexedDB) { reject(new Error('sem IndexedDB')); return; }
+              const req = indexedDB.open(PASTA_IDB, 1);
+              req.onupgradeneeded = () => { if (!req.result.objectStoreNames.contains('kv')) req.result.createObjectStore('kv'); };
+              req.onerror = () => reject(req.error);
+              req.onsuccess = () => {
+                const db = req.result;
+                try {
+                  const tx = db.transaction('kv', modo), r = fn(tx.objectStore('kv'));
+                  tx.oncomplete = () => { db.close(); resolve(r?.result); };
+                  tx.onerror = tx.onabort = () => { db.close(); reject(tx.error); };
+                } catch (e) { db.close(); reject(e); }
+              };
+            });
+          }
+          const permissao = async pedir => {
+            const opc = { mode: 'readwrite' };
+            try {
+              let p = await handle.queryPermission(opc);
+              if (p !== 'granted' && pedir) p = await handle.requestPermission(opc);
+              return p;
+            } catch (e) { return 'denied'; }
+          };
+          async function escreverFicheiro(dir, nome, texto) {
+            const fh = await dir.getFileHandle(nome, { create: true });
+            const w = await fh.createWritable();
+            try { await w.write(texto); await w.close(); }
+            catch (e) { try { await w.abort(); } catch (e2) { /* já fechado */ } throw e; }
+          }
+
+          return {
+            suportado,
+            info,
+            subscrever(f) { ouvintes.add(f); f(info()); return () => ouvintes.delete(f); },
+            /** Ao abrir a app: volta à pasta de antes, se houver (sem licença — isso precisa de um clique). */
+            async iniciar() {
+              if (!suportado) return info();
+              if (!handle) {
+                try { handle = (await idb('readonly', s => s.get('pasta'))) || null; } catch (e) { handle = null; }
+              }
+              if (!handle) mudar('sem');
+              else mudar(await permissao(false) === 'granted' ? 'ok' : 'licenca');
+              return info();
+            },
+            /** Escolher a pasta (de um clique). `false` se a pessoa cancelou. */
+            async escolher() {
+              if (!suportado) return false;
+              try { handle = await window.showDirectoryPicker({ id: 'pasta-backup', mode: 'readwrite' }); }
+              catch (e) { if (e?.name !== 'AbortError') mudar('erro', e?.message || String(e)); return false; }
+              try { await idb('readwrite', s => s.put(handle, 'pasta')); } catch (e) { /* fica só para esta sessão */ }
+              mudar(await permissao(true) === 'granted' ? 'ok' : 'licenca');
+              return estado === 'ok';
+            },
+            /** Pedir outra vez a licença da pasta lembrada (de um clique). */
+            async darAcesso() {
+              if (!handle) return false;
+              const ok = await permissao(true) === 'granted';
+              mudar(ok ? 'ok' : 'licenca');
+              return ok;
+            },
+            /** Deixar de usar a pasta (esquece-a neste browser). */
+            async esquecer() {
+              handle = null;
+              try { await idb('readwrite', s => s.delete('pasta')); } catch (e) { /* nada a esquecer */ }
+              mudar(suportado ? 'sem' : 'indisponivel');
+            },
+            /** O backup que está na pasta: `{ existe, texto, updatedAt, count, data }`. */
+            async lerActual() {
+              if (estado !== 'ok') throw new Error('sem acesso à pasta');
+              let fh;
+              try { fh = await handle.getFileHandle(PASTA_FICHEIRO); }
+              catch (e) { if (e?.name === 'NotFoundError') return { existe: false }; throw e; }
+              const f = await fh.getFile();
+              if (f.size > 100 * 1024 * 1024) throw new Error('o backup da pasta é grande demais (mais de 100 MB)');
+              const texto = await f.text();
+              return { existe: true, texto, ...resumoDoBackup(texto, f.lastModified) };
+            },
+            /**
+             * Grava o backup na pasta. Se lá houver um, copia-o primeiro para `copias-backup/` e
+             * apaga as cópias a mais. A cópia é feita antes de substituir: se falhar, o ficheiro
+             * da pasta não é tocado. Devolve `{ copia }`.
+             */
+            async gravar(texto, { propria = null, agora = Date.now() } = {}) {
+              if (estado !== 'ok') throw new Error('sem acesso à pasta');
+              let copia = null;
+              const actual = await this.lerActual();
+              if (deveCopiar(actual, propria, ultimaCopiaEm, agora)) {
+                const dir = await handle.getDirectoryHandle(PASTA_COPIAS, { create: true });
+                copia = nomeDaCopia(actual.data);
+                await escreverFicheiro(dir, copia, actual.texto);
+                ultimaCopiaEm = agora;
+                const nomes = [];
+                for await (const nome of dir.keys()) nomes.push(nome);
+                for (const nome of copiasParaApagar(nomes, agora)) {
+                  try { await dir.removeEntry(nome); } catch (e) { /* fica para a próxima */ }
+                }
+              }
+              await escreverFicheiro(handle, PASTA_FICHEIRO, texto);
+              return { copia };
+            },
+          };
+        }
+
+        const pastaLS = {
+          ler(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+          gravar(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* fica só nesta página */ } },
+        };
+        const pastaQuando = iso => new Date(iso).toLocaleString('pt-PT');
+        const pastaProcessos = n => n === null || n === undefined ? '' : ' (' + n + ' ' + (n === 1 ? 'registo' : 'registos') + ')';
+
+        /**
+         * O lado da interface. `op` traz o que é de cada app:
+         *   gerar()               → { texto, updatedAt }: o backup a gravar (async)
+         *   aplicar(texto)        → true se os dados da pasta foram aplicados (async; passa pela importação da app)
+         *   perguntar(texto, opc) → Promise<boolean>
+         *   avisar(texto, tipo)   → mensagem ('ok' | 'aviso' | 'erro')
+         *   aoGravar()            → depois de cada gravação (para os lembretes de backup da app)
+         */
+        function criarBackupAutomatico(op) {
+          const pasta = criarPastaBackup();
+          let auto = pastaLS.ler(PASTA_CHAVE_AUTO) !== '0';
+          let aGravar = false, gravadoEm = null, erro = '', mudou = null;
+          let base = pastaLS.ler(PASTA_CHAVE_BASE) || null;     // `updatedAt` da versão de onde estes dados partiram
+          let propria = null;                                      // `updatedAt` da última versão gravada por esta página
+          let pendente = pastaLS.ler(PASTA_CHAVE_PENDENTE) === '1';
+          let versao = 0, timer = null, ocupado = false;
+          const ouvintes = new Set();
+          const estado = () => ({ ...pasta.info(), auto, aGravar, gravadoEm, erro, mudou, pendente });
+          const emitir = () => { for (const f of ouvintes) { try { f(estado()); } catch (e) { /* ignora */ } } };
+          pasta.subscrever(() => emitir());
+
+          const versaoDaPasta = naPasta => ({ updatedAt: naPasta.updatedAt, count: naPasta.count,
+            idade: idadeFaceAPartida(naPasta.updatedAt, base) });
+          const lembrarBase = v => { base = v; pastaLS.gravar(PASTA_CHAVE_BASE, v); };
+          const marcarPendente = v => { pendente = v; pastaLS.gravar(PASTA_CHAVE_PENDENTE, v ? '1' : null); };
+
+          function agendar() {
+            clearTimeout(timer);
+            if (!auto || pasta.info().estado !== 'ok' || !pendente || mudou) return;
+            timer = setTimeout(() => { gravar({ perguntar: false }); }, PASTA_PAUSA_MS);
+          }
+
+          /** Grava na pasta. `perguntar`: a gravação manual pergunta num conflito; a automática pára e avisa. */
+          async function gravar({ perguntar }) {
+            if (ocupado || pasta.info().estado !== 'ok') return false;
+            ocupado = true; aGravar = true; emitir();
+            const versaoAntes = versao;
+            let reagendar = false;
+            const nome = '«' + pasta.info().pasta + '»';
+            try {
+              const { texto, updatedAt } = await op.gerar();
+              const naPasta = await pasta.lerActual();
+              if (haConflito(naPasta, base)) {
+                mudou = versaoDaPasta(naPasta);
+                if (!perguntar) return false;
+                const quando = naPasta.updatedAt ? 'em ' + pastaQuando(naPasta.updatedAt) : 'numa data que o ficheiro não diz';
+                const idade = mudou.idade;
+                const porque = !base ? 'e não se sabe se é a versão de onde estes dados partiram'
+                  : idade === 'mais-antiga' ? 'e é mais antigo do que a versão que carregaste'
+                  : idade === 'mais-recente' ? 'depois da versão que carregaste — alguém gravou entretanto'
+                  : 'e não é a versão que carregaste';
+                const seguir = await op.perguntar(
+                  'O backup da pasta ' + nome + ' foi gravado ' + quando + pastaProcessos(naPasta.count) + ', ' + porque + '.\n\n' +
+                  'Gravar por cima substitui-o pelos dados que tens aqui: o que essa versão tiver e estes não, deixa de estar no backup. ' +
+                  'Ela fica guardada em ' + PASTA_COPIAS + '/, para se poder recuperar.\n\n' +
+                  '(Para juntar os dois, cancela e usa «Abrir a versão da pasta…».)',
+                  { titulo: 'O backup da pasta mudou', confirmar: 'Gravar por cima' });
+                if (!seguir) { emitir(); return false; }
+              }
+              const { copia } = await pasta.gravar(texto, { propria });
+              propria = updatedAt; lembrarBase(updatedAt);
+              mudou = null; erro = ''; gravadoEm = Date.now();
+              // Só fica «guardado» se nada mudou enquanto se gravava; senão, a gravação seguinte apanha o resto.
+              if (versao === versaoAntes) marcarPendente(false); else reagendar = true;
+              try { op.aoGravar && op.aoGravar(); } catch (e) { /* um lembrete que falha não desfaz a gravação */ }
+              if (perguntar) op.avisar('Backup gravado na pasta ' + nome + '.' + (copia ? '\nA versão anterior ficou em ' + PASTA_COPIAS + '/' + copia + '.' : ''), 'ok');
+              return true;
+            } catch (e) {
+              erro = e?.message || String(e);
+              if (perguntar) op.avisar('Não foi possível gravar na pasta ' + nome + ': ' + erro + '\nO backup não foi gravado — usa a exportação manual.', 'erro');
+              return false;
+            } finally {
+              ocupado = false; aGravar = false; emitir();
+              if (reagendar) agendar();   // numa falha não se repete sozinha: espera pela próxima alteração
+            }
+          }
+
+          /** Vê se a versão da pasta é a de partida; sem ficheiro lá, grava logo. Sem perguntar. */
+          async function verificar() {
+            if (pasta.info().estado !== 'ok' || ocupado) return;
+            try {
+              const naPasta = await pasta.lerActual();
+              if (!naPasta.existe) { marcarPendente(true); await gravar({ perguntar: false }); return; }
+              if (haConflito(naPasta, base)) { mudou = versaoDaPasta(naPasta); emitir(); }
+              else if (pendente) agendar();
+            } catch (e) { erro = e?.message || String(e); emitir(); }
+          }
+
+          /** Trocar (ou juntar) os dados pelos da pasta, pela importação normal da app. */
+          async function abrirDaPasta() {
+            try {
+              const naPasta = await pasta.lerActual();
+              if (!naPasta.existe) throw new Error('não há backup na pasta');
+              if (!await op.aplicar(naPasta.texto)) return false;
+              // A importação gravou os dados (e marcou-os como por gravar): a partir daqui partem desta versão.
+              lembrarBase(naPasta.updatedAt); propria = null; mudou = null;
+              emitir(); agendar();
+              op.avisar('Aberta a versão da pasta' + (naPasta.updatedAt ? ' gravada em ' + pastaQuando(naPasta.updatedAt) : '') + '.', 'info');
+              return true;
+            } catch (e) {
+              op.avisar('Não foi possível abrir o backup da pasta: ' + (e?.message || e), 'erro');
+              return false;
+            }
+          }
+
+          async function vigiar() {
+            if (ocupado || pasta.info().estado !== 'ok' || document.visibilityState === 'hidden') return;
+            if (!base) return;          // sem versão de partida não há «mais recente» a anunciar
+            try {
+              const naPasta = await pasta.lerActual();
+              if (naPasta.existe && naPasta.updatedAt !== base && !(propria && naPasta.updatedAt === propria)) {
+                mudou = versaoDaPasta(naPasta); emitir();
+              }
+            } catch (e) { /* sem acesso agora: a próxima volta tenta outra vez */ }
+          }
+
+          return {
+            suportado: pasta.suportado,
+            estado,
+            subscrever(f) { ouvintes.add(f); f(estado()); return () => ouvintes.delete(f); },
+            /** Ao abrir a app. */
+            async iniciar() {
+              await pasta.iniciar();
+              pasta.subscrever(() => agendar());
+              setInterval(vigiar, PASTA_VIGIA_MS);
+              window.addEventListener('focus', vigiar);
+              document.addEventListener('visibilitychange', vigiar);
+              await verificar();
+              vigiar();
+            },
+            /** Os dados da app mudaram. */
+            alterado() { versao++; if (!pendente) marcarPendente(true); emitir(); agendar(); },
+            setAuto(v) { auto = !!v; pastaLS.gravar(PASTA_CHAVE_AUTO, auto ? '1' : '0'); emitir(); agendar(); },
+            /** «Escolher pasta» / «Dar acesso» (de um clique). */
+            async escolherPasta() {
+              const ok = pasta.info().estado === 'licenca' ? await pasta.darAcesso() : await pasta.escolher();
+              if (ok) await verificar();
+              return ok;
+            },
+            esquecerPasta() { return pasta.esquecer().then(() => { mudou = null; emitir(); }); },
+            /** A pasta tem a versão destes dados (ou vai ter, na gravação automática que já está marcada)? */
+            emDia() { return pasta.info().estado === 'ok' && auto && !mudou && !erro && !!base; },
+            gravarAgora() { return gravar({ perguntar: true }); },
+            abrirDaPasta,
+          };
+        }
+
+
+        // ── Ligação à app (v4.32.0) ──────────────────────────────────────────
+        // O backup da pasta é o do «Fazer Backup (JSON)» + `updatedAt` (a versão, para detetar que
+        // outra pessoa gravou). «Abrir a versão da pasta» passa pela importação normal (junta ou substitui).
+        const backupPasta = criarBackupAutomatico({
+            async gerar() {
+                const timestamp = new Date().toISOString();
+                const backup = await criarObjetoBackup(timestamp);
+                backup.updatedAt = timestamp;
+                return { texto: JSON.stringify(backup), updatedAt: timestamp };
+            },
+            aplicar: texto => importarBackupTexto(texto),
+            perguntar: texto => Promise.resolve(confirm(texto)),
+            avisar: (msg, tipo) => { if (tipo !== 'info') mostrarAlerta(msg, tipo === 'ok' ? 'success' : 'error'); },   // «info»: a importação já disse o que fez
+            aoGravar: () => registarBackupFicheiro(new Date().toISOString())
+        });
+        let backupPastaPronto = Promise.resolve();
+        let _backupPastaAvisou = false;
+        function mostrarBackupPasta(e) {
+            const el = id => document.getElementById(id);
+            const txt = el('backupPastaEstado'), btn = el('btnBackupPasta');
+            if (!txt || !btn) return;
+            const hora = e.gravadoEm ? new Date(e.gravadoEm).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : '';
+            btn.disabled = e.estado === 'indisponivel';
+            btn.textContent = e.estado === 'licenca' ? 'Dar acesso à pasta' : e.estado === 'ok' ? 'Escolher outra pasta' : 'Escolher pasta';
+            el('btnBackupPastaAgora').disabled = e.estado !== 'ok' || e.aGravar;
+            const off = el('btnBackupPastaOff');
+            if (off) off.style.display = e.pasta ? '' : 'none';
+            const chk = el('chkBackupPastaAuto');
+            if (chk) chk.checked = e.auto;
+            txt.textContent = ({
+                indisponivel: 'Este browser não consegue gravar numa pasta (use o Chrome ou o Edge de computador): use «Fazer Backup (JSON)».',
+                sem: 'Nenhuma pasta escolhida: o backup só se faz à mão, em «Fazer Backup (JSON)».',
+                licenca: `O browser pede licença outra vez para gravar na pasta «${e.pasta}» (acontece ao reabrir a app).`,
+                ok: e.mudou ? `Pasta «${e.pasta}»: a gravação automática está em pausa, até decidir o que fazer ao backup que lá está.`
+                    : e.auto ? `A gravar ${e.ficheiro} na pasta «${e.pasta}» uns segundos depois de cada alteração${hora ? ` — última vez às ${hora}` : ''}${e.pendente ? ' (há alterações por gravar)' : ''}.`
+                    : `Pasta «${e.pasta}»: gravação automática desligada — use «Gravar agora na pasta».`,
+                erro: `Não foi possível usar a pasta: ${e.erro}`
+            })[e.estado] || '';
+            if (e.erro && e.estado === 'ok') txt.textContent += ` Último erro: ${e.erro}`;
+            const aviso = el('backupPastaAviso');
+            if (aviso) {
+                aviso.classList.toggle('hidden', !e.mudou);
+                if (e.mudou) {
+                    const quando = e.mudou.updatedAt ? new Date(e.mudou.updatedAt).toLocaleString('pt-PT') : 'numa data que o ficheiro não diz';
+                    const que = { 'mais-recente': 'mais recente do que a versão de onde estes dados partiram', 'mais-antiga': 'mais antigo do que a versão de onde estes dados partiram' }[e.mudou.idade] || 'diferente da versão de onde estes dados partiram';
+                    el('backupPastaAvisoTxt').textContent = `O backup da pasta «${e.pasta}» foi gravado ${quando}${e.mudou.count == null ? '' : ` (${e.mudou.count} registos)`} e é ${que}. A gravação automática está em pausa para não apagar o trabalho de outra pessoa.`;
+                }
+            }
+            // Fora do separador Gestão o aviso não se vê: um alerta avisa uma vez por conflito.
+            if (e.mudou && !_backupPastaAvisou) {
+                _backupPastaAvisou = true;
+                mostrarAlerta('⚠️ O backup da pasta partilhada mudou (outra pessoa gravou). Abra Gestão dos Dados › Backup & Recuperação para o abrir ou gravar por cima.', 'warning', 15000);
+            }
+            if (!e.mudou) _backupPastaAvisou = false;
+        }
+        function ligarBackupPasta() {
+            backupPasta.subscrever(mostrarBackupPasta);
+            const ao = (id, ev, f) => { const x = document.getElementById(id); if (x) x.addEventListener(ev, f); };
+            ao('btnBackupPasta', 'click', () => { backupPasta.escolherPasta(); });
+            ao('btnBackupPastaAgora', 'click', () => { backupPasta.gravarAgora(); });
+            ao('btnBackupPastaOff', 'click', () => { backupPasta.esquecerPasta(); });
+            ao('btnBackupPastaAbrir', 'click', () => { backupPasta.abrirDaPasta(); });
+            ao('btnBackupPastaPorCima', 'click', () => { backupPasta.gravarAgora(); });
+            ao('chkBackupPastaAuto', 'change', ev => backupPasta.setAuto(ev.target.checked));
+            backupPastaPronto = backupPasta.iniciar().catch(err => console.warn('Backup na pasta:', err));
         }
 
         // Descarta entradas que não são sequer um registo plausível (fragmento

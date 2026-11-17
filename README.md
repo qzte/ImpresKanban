@@ -2,7 +2,7 @@
 
 > Ferramenta web **100% offline** para controlo e análise de Kanban e gestão de KPI para equipas de manutenção de supermercados.
 
-**Versão atual:** 4.31.0 — servida como `index.html`
+**Versão atual:** 4.32.0 — servida como `index.html`
 
 ---
 
@@ -213,7 +213,7 @@ npm run test:e2e
 | Pasta | O que cobre |
 |---|---|
 | `test/` | Funções puras extraídas de `index.html` (validações, quantidades de kanbans, datas, pesquisas nas referências, merge de backups) |
-| `e2e/` | Fluxos completos no browser: arranque, registo individual (validação, duplicados), registo em Batch (validação nas referências, tudo ou nada, duplicados), período do briefing mensal, Histórico (paginação, filtros, editar, eliminar), importação de registos de Excel (duplicados por UUID), origens por omissão, backup JSON (exportar, importar Concatenar/Substituir, ficheiro inválido), backup semanal, recuperação de dados corrompidos, Content-Security-Policy (com xlsx.js/jsPDF/autotable reais — ver `e2e/fixtures/README.md`), os filtros dos 3 dashboards e o motor de armazenamento IndexedDB (migração, fallback, limite acima do do localStorage) |
+| `e2e/` | Fluxos completos no browser: arranque, registo individual (validação, duplicados), registo em Batch (validação nas referências, tudo ou nada, duplicados), período do briefing mensal, Histórico (paginação, filtros, editar, eliminar), importação de registos de Excel (duplicados por UUID), origens por omissão, backup JSON (exportar, importar Concatenar/Substituir, ficheiro inválido), backup semanal, backup automático na pasta partilhada (conflitos, cópias), recuperação de dados corrompidos, Content-Security-Policy (com xlsx.js/jsPDF/autotable reais — ver `e2e/fixtures/README.md`), os filtros dos 3 dashboards e o motor de armazenamento IndexedDB (migração, fallback, limite acima do do localStorage) |
 
 Os testes de interface correm com o relógio fixo, fuso de Lisboa e sem rede (CDN bloqueadas), por isso dão o mesmo resultado em qualquer dia. As duas suites correm no CI em cada PR.
 
@@ -225,6 +225,7 @@ Consulte o ficheiro [`versao.md`](./versao.md) para o histórico completo.
 
 | Versão | Data | Destaque |
 |---|---|---|
+| **4.32.0** | 17 Nov 2026 | 💾 Backup automático na pasta partilhada, com deteção de conflitos e cópias das versões substituídas |
 | **4.31.0** | 13 Nov 2026 | 📟 Universo de kanbans mensal e `universoPorMes` no feed do painel e-ink |
 | **4.30.0** | 13 Nov 2026 | 🧹 Origens por omissão iguais em todos os caminhos, importação de Excel por UUID, Playwright 1.65 |
 | **4.29.0** | 13 Nov 2026 | 🛡️ Batch com as regras do registo individual (tudo ou nada), período do briefing mensal na hora de verão, alertas e concatenação de backups |
