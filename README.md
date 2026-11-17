@@ -121,6 +121,19 @@ Ficheiro Excel (`.xlsx`) com as seguintes folhas obrigatórias:
 
 > Apenas registos com `*_ATIVO = true` são carregados (aceite também como texto "VERDADEIRO"/"TRUE"/"SIM" ou número `1` — ver `isValorAtivo()`, v4.9.9). Se T_Origem não existir, são usados valores padrão (Armazém, Externo A, Externo B) — os mesmos no arranque, ao carregar um Excel sem a folha e em «Limpar referências» (`origensPadrao()`, v4.30.0).
 
+### Backup na pasta partilhada (v4.32.0)
+
+Em **Gestão dos Dados › Backup & Recuperação**, **Escolher pasta** (Chrome ou Edge de computador; a pasta fica lembrada no browser). Daí em diante, cada alteração aos registos ou às tabelas de referência é gravada sozinha em `impreskanban_backup.json`, uns 4 segundos depois — o mesmo conteúdo do **Fazer Backup (JSON)**, mais o campo `updatedAt` (a versão). «Gravar sozinho» desliga-se; **Gravar agora na pasta** grava já. Com a pasta a gravar sem conflito, o backup semanal das sextas fica dispensado.
+
+Com várias pessoas na mesma pasta, a app **nunca grava por cima do trabalho de outra**: antes de gravar relê o ficheiro e, se foi gravado depois da versão de onde estes dados partiram, a gravação automática **pára** e mostra um aviso:
+
+- **Abrir a versão da pasta…** — passa pela importação normal («Importar backup JSON?» e depois Concatenar ou Substituir); depois de juntar, a app grava o resultado;
+- **Gravar por cima…** — pergunta primeiro.
+
+Antes de substituir o ficheiro, a versão que lá estava fica em `copias-backup/impreskanban_backup_AAAA-MM-DD_HH-MM-SS.json` (30 dias, e sempre as 10 mais recentes; das gravações da própria app, uma por hora). A pasta é relida de 2 em 2 minutos e ao voltar ao separador.
+
+Está em `criarPastaBackup()` e `criarBackupAutomatico()` (`index.html`); a mecânica é a da app *supermercados* (`src/app/nucleo/pasta-backup.js`), copiada e adaptada porque esta app é um único `index.html`. A importação do JSON é `importarBackupTexto()`, partilhada com o backup da pasta.
+
 ---
 
 ## 🛠️ Requisitos Técnicos
