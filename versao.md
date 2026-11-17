@@ -4,6 +4,19 @@
 
 ---
 
+## v4.32.0 — 17 Nov 2026
+
+### 💾 Backup automático na pasta partilhada
+
+- **O backup grava-se sozinho na pasta partilhada.** Em Gestão dos Dados › Backup & Recuperação, «Escolher pasta» (Chrome ou Edge de computador; a pasta fica lembrada neste browser). A partir daí, cada alteração aos registos ou às tabelas de referência é gravada em `impreskanban_backup.json` uns 4 segundos depois. Esquecer o «Fazer Backup (JSON)» deixa de ser um risco. Pode desligar-se («Gravar sozinho…»); «Gravar agora na pasta» grava já
+- **Nunca grava por cima do trabalho de outra pessoa.** O ficheiro leva um `updatedAt` (a versão). Antes de gravar, a app relê o ficheiro: se foi gravado depois da versão de onde estes dados partiram, **pára** e mostra o aviso, com «Abrir a versão da pasta…» (passa pela importação normal: juntar ou substituir; depois de juntar, grava o resultado) e «Gravar por cima…» (pergunta). A pasta também é relida de 2 em 2 minutos e ao voltar ao separador
+- **Cópias das versões substituídas.** Antes de substituir o ficheiro, a versão que lá está fica em `copias-backup/impreskanban_backup_AAAA-MM-DD_HH-MM-SS.json`; guardam-se as dos últimos 30 dias (e sempre as 10 mais recentes). Das gravações da própria app guarda-se uma por hora
+- **O backup semanal fica feito** quando a pasta está a gravar sozinha e sem conflito: o aviso das sextas deixa de aparecer
+- O ficheiro tem o mesmo formato do «Fazer Backup (JSON)» (mais `updatedAt`) e abre-se em «Recuperar Backup». A importação do JSON passou a `importarBackupTexto()`, que o backup da pasta também usa
+- **Testes:** `e2e/backup-pasta.e2e.js` e as regras de conflito e de cópias em `test/pure-functions.test.js`
+
+---
+
 ## v4.31.0 — 13 Nov 2026
 
 ### 📟 Universo de kanbans no painel e-ink
