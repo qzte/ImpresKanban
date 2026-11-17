@@ -6704,7 +6704,7 @@
               // A importação gravou os dados (e marcou-os como por gravar): a partir daqui partem desta versão.
               lembrarBase(naPasta.updatedAt); propria = null; mudou = null;
               emitir(); agendar();
-              op.avisar('Aberta a versão da pasta' + (naPasta.updatedAt ? ' gravada em ' + pastaQuando(naPasta.updatedAt) : '') + '.', 'ok');
+              op.avisar('Aberta a versão da pasta' + (naPasta.updatedAt ? ' gravada em ' + pastaQuando(naPasta.updatedAt) : '') + '.', 'info');
               return true;
             } catch (e) {
               op.avisar('Não foi possível abrir o backup da pasta: ' + (e?.message || e), 'erro');
@@ -6767,7 +6767,7 @@
             },
             aplicar: texto => importarBackupTexto(texto),
             perguntar: texto => Promise.resolve(confirm(texto)),
-            avisar: (msg, tipo) => mostrarAlerta(msg, tipo === 'ok' ? 'success' : tipo === 'erro' ? 'error' : 'warning'),
+            avisar: (msg, tipo) => { if (tipo !== 'info') mostrarAlerta(msg, tipo === 'ok' ? 'success' : 'error'); },   // «info»: a importação já disse o que fez
             aoGravar: () => registarBackupFicheiro(new Date().toISOString())
         });
         let backupPastaPronto = Promise.resolve();
