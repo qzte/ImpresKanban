@@ -2,7 +2,7 @@
 
 > Ferramenta web **100% offline** para controlo e análise de Kanban e gestão de KPI para equipas de manutenção de supermercados.
 
-**Versão atual:** 4.32.0 — servida como `index.html`
+**Versão atual:** 4.32.1 — servida como `index.html`
 
 ---
 
@@ -238,6 +238,7 @@ Consulte o ficheiro [`versao.md`](./versao.md) para o histórico completo.
 
 | Versão | Data | Destaque |
 |---|---|---|
+| **4.32.1** | 23 Nov 2026 | 📟 Painel e-ink: o primeiro clique ao reabrir a app pede a licença da pasta, para o feed não ficar com os dados do dia anterior |
 | **4.32.0** | 17 Nov 2026 | 💾 Backup automático na pasta partilhada, com deteção de conflitos e cópias das versões substituídas |
 | **4.31.0** | 13 Nov 2026 | 📟 Universo de kanbans mensal e `universoPorMes` no feed do painel e-ink |
 | **4.30.0** | 13 Nov 2026 | 🧹 Origens por omissão iguais em todos os caminhos, importação de Excel por UUID, Playwright 1.65 |

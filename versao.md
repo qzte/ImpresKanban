@@ -4,6 +4,16 @@
 
 ---
 
+## v4.32.1 — 23 Nov 2026
+
+### 📟 Painel e-ink: o feed deixa de ficar com os dados do dia anterior
+
+- **Causa:** ao reabrir a app, o browser pede licença outra vez para gravar na pasta do painel e só a deixa pedir num gesto do utilizador. Enquanto ninguém carregava em «Dar acesso à pasta», nada era gravado: o `impreskanban.painel.json` ficava com os dados do último dia em que a licença foi dada (na segunda-feira, os de sexta, com o «Hoje» desse dia)
+- **Correção:** o primeiro clique em qualquer sítio da app pede a licença (uma vez por abertura) e grava logo o feed. Se for recusada, fica o botão «Dar acesso à pasta», como antes
+- O formato do feed não muda. O painel.html (v1.8.1) já mostra «—» no «Hoje» quando o feed é de outro dia
+
+---
+
 ## v4.32.0 — 17 Nov 2026
 
 ### 💾 Backup automático na pasta partilhada

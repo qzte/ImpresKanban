@@ -75,7 +75,7 @@
     </script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.32.0 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.32.1 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
 
            Histórico de versões: versao.md (o changelog que estava aqui
@@ -6369,6 +6369,15 @@
                 acao.then(() => painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro, universoKanbans)));
             });
             painelEink.iniciar().then(() => painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro, universoKanbans)));
+            // v4.32.1: ao reabrir, o browser pede licença outra vez para gravar na pasta e só deixa pedi-la num gesto do utilizador.
+            // Sem isto o feed ficava com os dados do último dia em que a licença foi dada (na segunda, os de sexta) até alguém
+            // achar o botão «Dar acesso à pasta». Agora o primeiro clique na app pede-a (uma vez por abertura; recusada, fica o botão).
+            let licencaPedida = false;
+            document.addEventListener('pointerdown', () => {
+                if (licencaPedida || painelEink.info().estado !== 'licenca') return;
+                licencaPedida = true;
+                painelEink.darAcesso().then(ok => ok && painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro, universoKanbans), true));
+            }, true);
             // «Hoje» e «7 dias» mudam com o dia, mesmo sem registos novos.
             setInterval(() => painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro, universoKanbans)), 10 * 60 * 1000);
             // Envio diário às 12h nos dias úteis (com a app aberta; se for aberta depois das 12h, envia nessa altura).
