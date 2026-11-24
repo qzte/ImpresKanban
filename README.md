@@ -2,7 +2,7 @@
 
 > Ferramenta web **100% offline** para controlo e análise de Kanban e gestão de KPI para equipas de manutenção de supermercados.
 
-**Versão atual:** 4.32.1 — servida como `index.html`
+**Versão atual:** 4.33.0 — servida como `index.html`
 
 ---
 
@@ -58,6 +58,8 @@ Em **💾 Gestão dos Dados → 📟 Painel e-ink** escolhe-se uma **pasta parti
 `painel.html` —, uma vez; a app grava lá `impreskanban.painel.json` sempre que os registos mudam. Ao reabrir a app o
 browser pode pedir licença outra vez («Dar acesso à pasta»). Só no Chrome ou no Edge de computador. O formato está em
 `docs/09-formato-feed.md` do qzte/e-ink_panel; o resumo é calculado aqui (`dadosPainelKanban`).
+O ficheiro diz **quem o gravou** (`autor`): ao escolher a pasta, a app pergunta uma vez o nome deste computador (ou de quem o usa);
+sem nome, fica um código `PC-XXXX`. «Mudar nome», no mesmo cartão, muda-o. O painel mostra-o na lista e no rodapé das páginas.
 
 ---
 
@@ -238,6 +240,7 @@ Consulte o ficheiro [`versao.md`](./versao.md) para o histórico completo.
 
 | Versão | Data | Destaque |
 |---|---|---|
+| **4.33.0** | 24 Nov 2026 | 📟 Painel e-ink: o ficheiro diz quem o gravou (o nome deste computador), para o painel mostrar a quem perguntar |
 | **4.32.1** | 23 Nov 2026 | 📟 Painel e-ink: o primeiro clique ao reabrir a app pede a licença da pasta, para o feed não ficar com os dados do dia anterior |
 | **4.32.0** | 17 Nov 2026 | 💾 Backup automático na pasta partilhada, com deteção de conflitos e cópias das versões substituídas |
 | **4.31.0** | 13 Nov 2026 | 📟 Universo de kanbans mensal e `universoPorMes` no feed do painel e-ink |

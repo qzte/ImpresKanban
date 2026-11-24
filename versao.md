@@ -4,6 +4,17 @@
 
 ---
 
+## v4.33.0 — 24 Nov 2026
+
+### 📟 Painel e-ink: o ficheiro diz quem o gravou
+
+- **Para se saber a quem perguntar** quando a página do painel tem dados errados ou antigos: o `impreskanban.painel.json` leva o campo `autor`, o nome deste computador (ou de quem o usa), que o painel (qzte/e-ink_panel v1.13.0) mostra na lista da pasta e no rodapé da página
+- A app pergunta-o **uma vez**: ao escolher a pasta, ou ao abrir esta versão com a pasta já escolhida. Sem nome, fica um código `PC-XXXX`. Em 💾 Gestão dos Dados › 📟 Painel e-ink, «Mudar nome» muda-o e regrava o ficheiro
+- O escritor do painel é a cópia nova do de qzte/e-ink_panel (v1.13.1), que passou a ter o `escrever(dados, true)` que era só desta app
+- **Testes:** `e2e/painel.e2e.js` (o nome pedido ao escolher a pasta e «Mudar nome»)
+
+---
+
 ## v4.32.1 — 23 Nov 2026
 
 ### 📟 Painel e-ink: o feed deixa de ficar com os dados do dia anterior

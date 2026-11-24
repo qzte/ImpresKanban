@@ -75,7 +75,7 @@
     </script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.32.1 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.33.0 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
 
            Histórico de versões: versao.md (o changelog que estava aqui
@@ -2712,6 +2712,11 @@
                 <button class="btn btn-secondary" id="btnPainel" type="button">Escolher pasta</button>
             </div>
             <div id="painelEstado" role="status" style="font-size: 0.85rem; color: var(--text-muted); margin-top: var(--space-md);"></div>
+            <!-- v4.33.0: o nome deste computador, que o painel mostra como quem gravou os dados (para se saber a quem perguntar). -->
+            <div id="painelQuem" style="display: none; font-size: 0.85rem; color: var(--text-muted); margin-top: var(--space-sm);">
+                O painel mostra <b id="painelAutor"></b> como quem grava.
+                <button class="btn btn-secondary" id="btnPainelAutor" type="button" style="margin-left: var(--space-sm);">Mudar nome</button>
+            </div>
             <h3 style="font-size: 1rem; margin: var(--space-lg) 0 var(--space-sm) 0;">Universo de kanbans</h3>
             <p style="font-size: 0.9rem; color: var(--text-muted); margin: 0 0 var(--space-md) 0;">
                 Número total de kanbans do universo, avaliado <b>todos os meses</b>. O painel mostra, na página do ano, a percentagem de
@@ -6115,23 +6120,30 @@
         //   await painel.iniciar();                 // ao abrir a app: lembra-se da pasta escolhida antes
         //   botão «Escolher pasta» → painel.escolher();   botão «Dar acesso» → painel.darAcesso()   (têm de vir de um clique)
         //   painel.escrever(dados);                 // sempre que os dados mudam (a app agrupa as mudanças, p. ex. 2 s)
+        //   painel.escrever(dados, true);           // regrava mesmo sem mudanças (p. ex. uma vez por dia)
+        //   link «mudar» → painel.pedirAutor()     // (opcional) o nome deste computador, que o painel mostra; ou definirAutor(nome)
+        //   criarEscritorPainel({ …, perguntar: atual => … })   // (opcional) pedir o nome com a caixa da app, e não com prompt()
+        //
+        // O feed diz quem o gravou («autor»): o nome deste computador ou de quem o usa, perguntado uma vez ao escolher a pasta
+        // e guardado no browser. Sem nome, um código «PC-XXXX» — distingue os computadores até alguém escrever o nome.
         //
         // Grava `<app>.painel.json` na pasta com createWritable(), que só substitui o ficheiro no close() — o
         // painel nunca lê um ficheiro a meio. Não regrava se os dados forem iguais aos da última escrita.
         // Se a pasta ainda não tem licença, guarda os dados e escreve-os quando a licença for dada.
         // ─────────────────────────────────────────────────────────────────────────────
 
-        function criarEscritorPainel({ app, titulo, versaoApp = '' }) {
+        function criarEscritorPainel({ app, titulo, versaoApp = '', perguntar: perguntarApp = null }) {
           if (!/^[a-z0-9-]{1,40}$/.test(app)) throw new Error('criarEscritorPainel: «app» inválido');
           const FICHEIRO = `${app}.painel.json`;
-          const IDB = `painel-feed:${app}`, LOJA = 'kv', CHAVE = 'pasta';
+          const IDB = `painel-feed:${app}`, LOJA = 'kv', CHAVE = 'pasta', CHAVE_AUTOR = 'autor';
           const suportado = typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function';
           let handle = null, estado = suportado ? 'sem' : 'indisponivel', erro = '', escritoEm = null;
-          let pendentes = null, ultimoTexto = '', aEscrever = null;
+          let pendentes = null, ultimoTexto = '', aEscrever = null, ultimosPedidos = null, autor = '';
           const ouvintes = new Set();
           const avisar = () => { for (const f of ouvintes) { try { f(info()); } catch (e) { /* um ouvinte não estraga os outros */ } } };
           const mudar = (novo, msg = '') => { estado = novo; erro = msg; avisar(); };
-          const info = () => ({ estado, erro, pasta: handle?.name || '', ficheiro: FICHEIRO, escritoEm });
+          const info = () => ({ estado, erro, pasta: handle?.name || '', ficheiro: FICHEIRO, escritoEm, autor });
+          const PERGUNTA = 'Nome deste computador ou de quem o usa (aparece no painel e-ink, para se saber a quem perguntar):';
 
           function idb(modo, fn) {
             return new Promise((resolve, reject) => {
@@ -6159,6 +6171,27 @@
             } catch (e) { return 'denied'; }
           };
 
+          // O autor: até 40 caracteres; vazio → um código «PC-XXXX» (4 letras/algarismos ao acaso), guardado como um nome.
+          const limpar = nome => (typeof nome === 'string' ? nome.trim().slice(0, 40) : '');
+          const codigo = () => {
+            const L = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', v = new Uint8Array(4);
+            crypto.getRandomValues(v);
+            return 'PC-' + Array.from(v, x => L[x % L.length]).join('');
+          };
+          async function guardarAutor(nome) {
+            autor = limpar(nome) || codigo();
+            try { await idb('readwrite', s => s.put(autor, CHAVE_AUTOR)); } catch (e) { /* fica só para esta sessão */ }
+            avisar();
+          }
+          // Pede o nome: com `perguntar` (opção), à maneira da app — (atual, pergunta) → texto, null para cancelar, ou uma promessa
+          // disso; sem ela, a caixa nativa do browser (prompt).
+          const perguntar = async atual => {
+            try {
+              if (typeof perguntarApp === 'function') return await perguntarApp(atual || '', PERGUNTA);
+              return typeof window.prompt === 'function' ? window.prompt(PERGUNTA, atual || '') : null;
+            } catch (e) { return null; }
+          };
+
           async function gravar(texto) {
             const fh = await handle.getFileHandle(FICHEIRO, { create: true });
             const w = await fh.createWritable();
@@ -6166,15 +6199,20 @@
             catch (e) { try { await w.abort(); } catch (e2) { /* já fechado */ } throw e; }
           }
 
-          // As escritas vão uma de cada vez; a última pedida é a que fica.
+          // As escritas vão uma de cada vez; a última pedida é a que fica. Quem chega a meio espera e, se ainda houver o que
+          // escrever (pedido depois de a volta em curso ter visto `pendentes`), escreve-o a seguir.
           async function despejar() {
-            if (aEscrever) return aEscrever;
+            if (aEscrever) {
+              try { await aEscrever; } catch (e) { /* a volta em curso trata dos seus erros */ }
+              return pendentes && estado === 'ok' ? despejar() : undefined;
+            }
             aEscrever = (async () => {
               while (pendentes && estado === 'ok') {
                 const dados = pendentes; pendentes = null;
-                const corpo = JSON.stringify(dados);
+                if (!autor) await guardarAutor('');
+                const corpo = autor + '\n' + JSON.stringify(dados);   // um autor novo também conta como mudança
                 if (corpo === ultimoTexto) continue;
-                const texto = JSON.stringify({ formato: 'painel-feed', versao: 1, app, titulo, versaoApp, gerado: new Date().toISOString(), dados });
+                const texto = JSON.stringify({ formato: 'painel-feed', versao: 1, app, titulo, versaoApp, autor, gerado: new Date().toISOString(), dados });
                 try { await gravar(texto); ultimoTexto = corpo; escritoEm = Date.now(); mudar('ok'); }
                 catch (e) {
                   pendentes = pendentes || dados;      // tenta outra vez quando a licença voltar
@@ -6193,8 +6231,11 @@
             /** Ao abrir a app: volta à pasta de antes, se a houver (sem clique, só se a licença ainda valer). */
             async iniciar() {
               if (!suportado) return info();
+              try { autor = limpar(await idb('readonly', s => s.get(CHAVE_AUTOR))); } catch (e) { /* sem nome guardado */ }
               try { handle = (await idb('readonly', s => s.get(CHAVE))) || null; } catch (e) { handle = null; }
               if (!handle) { mudar('sem'); return info(); }
+              // Uma pasta escolhida antes de haver nomes (app atualizada): pergunta uma vez, como ao escolher a pasta.
+              if (!autor) await guardarAutor(await perguntar(''));
               mudar(await permissao(false) === 'granted' ? 'ok' : 'licenca');
               await despejar();
               return info();
@@ -6205,6 +6246,7 @@
               try { handle = await window.showDirectoryPicker({ id: 'painel-eink', mode: 'readwrite' }); }
               catch (e) { if (e?.name === 'AbortError') return false; mudar('erro', e?.message || String(e)); return false; }
               try { await idb('readwrite', s => s.put(handle, CHAVE)); } catch (e) { /* fica só para esta sessão */ }
+              if (!autor) await guardarAutor(await perguntar(''));   // a primeira vez: quem é este computador (cancelar → código)
               ultimoTexto = '';
               mudar('ok'); await despejar();
               return true;
@@ -6218,14 +6260,26 @@
             },
             /** Deixar de escrever para o painel (esquece a pasta). */
             async esquecer() {
-              handle = null; pendentes = null; ultimoTexto = '';
+              handle = null; pendentes = null; ultimosPedidos = null; ultimoTexto = '';
               try { await idb('readwrite', s => s.delete(CHAVE)); } catch (e) { /* nada a esquecer */ }
               mudar(suportado ? 'sem' : 'indisponivel');
             },
-            /** Os dados mudaram: escreve-os (já, se houver pasta com licença; senão, quando houver). */
+            /** Pergunta o nome deste computador (de um clique: link «mudar» na app). Cancelar não muda nada. Devolve o autor. */
+            async pedirAutor() {
+              const r = await perguntar(autor);
+              if (r !== null && r !== undefined) await this.definirAutor(r);
+              return autor;
+            },
+            /** Muda o nome deste computador (vazio → código «PC-XXXX») e regrava o ficheiro com os últimos dados. */
+            async definirAutor(nome) {
+              await guardarAutor(nome);
+              if (!pendentes && ultimosPedidos) pendentes = ultimosPedidos;   // os últimos dados pedidos, com o nome novo
+              if (estado === 'ok') await despejar();
+            },
+            /** Os dados mudaram (ou `forcar`): escreve-os (já, se houver pasta com licença; senão, quando houver). */
             async escrever(dados, forcar = false) {
-              pendentes = dados;
-              if (forcar) ultimoTexto = '';      // regrava mesmo que os dados sejam iguais
+              pendentes = dados; ultimosPedidos = dados;
+              if (forcar) ultimoTexto = '';      // regrava mesmo que os dados sejam iguais (p. ex. uma vez por dia: o «gerado» fica de hoje)
               if (estado === 'ok') await despejar();
             },
           };
@@ -6329,6 +6383,10 @@
             btn.dataset.estado = i.estado;
             btn.disabled = i.estado === 'indisponivel';
             btn.textContent = i.estado === 'licenca' ? 'Dar acesso à pasta' : i.estado === 'ok' ? 'Escolher outra pasta' : 'Escolher pasta';
+            // v4.33.0: quem grava — o nome deste computador, pedido ao escolher a pasta (sem nome, um código PC-XXXX).
+            const quem = document.getElementById('painelQuem'), autor = document.getElementById('painelAutor');
+            if (quem) quem.style.display = i.pasta && i.autor ? '' : 'none';
+            if (autor) autor.textContent = i.autor || '';
             txt.textContent = ({
                 indisponivel: 'Este browser não consegue gravar numa pasta (use o Chrome ou o Edge de computador).',
                 sem: 'Nenhuma pasta escolhida: o painel não recebe os kanbans impressos.',
@@ -6368,6 +6426,8 @@
                 const acao = painelEink.info().estado === 'licenca' ? painelEink.darAcesso() : painelEink.escolher();
                 acao.then(() => painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro, universoKanbans)));
             });
+            const btnAutor = document.getElementById('btnPainelAutor');
+            if (btnAutor) btnAutor.addEventListener('click', () => painelEink.pedirAutor());
             painelEink.iniciar().then(() => painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro, universoKanbans)));
             // v4.32.1: ao reabrir, o browser pede licença outra vez para gravar na pasta e só deixa pedi-la num gesto do utilizador.
             // Sem isto o feed ficava com os dados do último dia em que a licença foi dada (na segunda, os de sexta) até alguém
