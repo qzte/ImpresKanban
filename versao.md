@@ -4,6 +4,14 @@
 
 ---
 
+## v4.33.1 — 24 Nov 2026
+
+### 📟 Painel e-ink: escritor actualizado
+
+- O escritor do painel passa a ser a cópia da v1.13.2 de qzte/e-ink_panel: `pedirAutor` e `definirAutor` funcionam também soltos (`botao.onclick = painelEink.pedirAutor`). Nada muda para quem usa a app
+
+---
+
 ## v4.33.0 — 24 Nov 2026
 
 ### 📟 Painel e-ink: o ficheiro diz quem o gravou

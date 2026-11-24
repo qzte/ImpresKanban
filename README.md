@@ -2,7 +2,7 @@
 
 > Ferramenta web **100% offline** para controlo e análise de Kanban e gestão de KPI para equipas de manutenção de supermercados.
 
-**Versão atual:** 4.33.0 — servida como `index.html`
+**Versão atual:** 4.33.1 — servida como `index.html`
 
 ---
 
@@ -240,6 +240,7 @@ Consulte o ficheiro [`versao.md`](./versao.md) para o histórico completo.
 
 | Versão | Data | Destaque |
 |---|---|---|
+| **4.33.1** | 24 Nov 2026 | 📟 Painel e-ink: escritor actualizado (cópia da v1.13.2 de qzte/e-ink_panel) |
 | **4.33.0** | 24 Nov 2026 | 📟 Painel e-ink: o ficheiro diz quem o gravou (o nome deste computador), para o painel mostrar a quem perguntar |
 | **4.32.1** | 23 Nov 2026 | 📟 Painel e-ink: o primeiro clique ao reabrir a app pede a licença da pasta, para o feed não ficar com os dados do dia anterior |
 | **4.32.0** | 17 Nov 2026 | 💾 Backup automático na pasta partilhada, com deteção de conflitos e cópias das versões substituídas |
