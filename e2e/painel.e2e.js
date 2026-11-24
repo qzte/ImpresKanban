@@ -79,4 +79,24 @@ describe('Painel e-ink (impreskanban.painel.json)', () => {
             await context.close();
         }
     });
+
+    // v4.33.0: o ficheiro diz quem o gravou (autor), para o painel mostrar a quem perguntar.
+    test('ao escolher a pasta pergunta o nome deste computador e grava-o; «Mudar nome» muda-o', async () => {
+        const { context, page, erros } = await abrirApp(browser, url, { storage: { ...REFERENCIAS, kanban_registos: [] } });
+        try {
+            await pastaFalsa(page);
+            page.once('dialog', d => d.accept('PC Farmácia'));
+            await page.evaluate(() => document.getElementById('btnPainel').click());
+            await page.waitForFunction(() => !!window.__PASTA.ficheiros['impreskanban.painel.json']);
+            assert.equal((await lerFeed(page)).autor, 'PC Farmácia');
+            assert.match(await page.locator('#painelAutor').textContent(), /PC Farmácia/);
+            page.once('dialog', d => d.accept('Ana'));
+            await page.evaluate(() => document.getElementById('btnPainelAutor').click());   // o cartão está noutro separador
+            await page.waitForFunction(() => (window.__PASTA.ficheiros['impreskanban.painel.json'] || '').includes('"autor":"Ana"'), null, { timeout: 10000 });
+            assert.match(await page.locator('#painelAutor').textContent(), /Ana/);
+            assert.deepEqual(erros, []);
+        } finally {
+            await context.close();
+        }
+    });
 });
