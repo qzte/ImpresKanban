@@ -60,6 +60,12 @@ browser pode pedir licença outra vez («Dar acesso à pasta»). Só no Chrome o
 `docs/09-formato-feed.md` do qzte/e-ink_panel; o resumo é calculado aqui (`dadosPainelKanban`).
 O ficheiro diz **quem o gravou** (`autor`): ao escolher a pasta, a app pergunta uma vez o nome deste computador (ou de quem o usa);
 sem nome, fica um código `PC-XXXX`. «Mudar nome», no mesmo cartão, muda-o. O painel mostra-o na lista e no rodapé das páginas.
+O escritor do painel (no `index.html`) é uma cópia do de qzte/e-ink_panel (desde a 4.33.1, a da v1.13.2 do painel; ao mudar
+lá, copiar de novo e subir a versão). Nos dias úteis às 12h a app regrava o ficheiro mesmo sem alterações
+(`escrever(dados, true)`), para o painel não a dar como parada.
+Para o painel mostrar quem gravou, o `painel.html` tem de ser a v1.13.0 ou mais recente (hoje, a v1.13.2); com um
+`painel.html` mais antigo o campo é ignorado e o resto funciona igual. As versões das três apps e onde se muda o nome
+em cada uma estão no README do qzte/e-ink_panel («As apps»).
 
 ---
 
