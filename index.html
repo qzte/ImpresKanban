@@ -75,7 +75,7 @@
     </script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.33.0 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.33.1 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
 
            Histórico de versões: versao.md (o changelog que estava aqui
@@ -6192,6 +6192,18 @@
             } catch (e) { return null; }
           };
 
+          // Funções soltas (e não métodos com `this`): `link.onclick = painel.pedirAutor` também funciona.
+          async function definirAutor(nome) {
+            await guardarAutor(nome);
+            if (!pendentes && ultimosPedidos) pendentes = ultimosPedidos;   // os últimos dados pedidos, com o nome novo
+            if (estado === 'ok') await despejar();
+          }
+          async function pedirAutor() {
+            const r = await perguntar(autor);
+            if (r !== null && r !== undefined) await definirAutor(r);
+            return autor;
+          }
+
           async function gravar(texto) {
             const fh = await handle.getFileHandle(FICHEIRO, { create: true });
             const w = await fh.createWritable();
@@ -6265,17 +6277,9 @@
               mudar(suportado ? 'sem' : 'indisponivel');
             },
             /** Pergunta o nome deste computador (de um clique: link «mudar» na app). Cancelar não muda nada. Devolve o autor. */
-            async pedirAutor() {
-              const r = await perguntar(autor);
-              if (r !== null && r !== undefined) await this.definirAutor(r);
-              return autor;
-            },
+            pedirAutor,
             /** Muda o nome deste computador (vazio → código «PC-XXXX») e regrava o ficheiro com os últimos dados. */
-            async definirAutor(nome) {
-              await guardarAutor(nome);
-              if (!pendentes && ultimosPedidos) pendentes = ultimosPedidos;   // os últimos dados pedidos, com o nome novo
-              if (estado === 'ok') await despejar();
-            },
+            definirAutor,
             /** Os dados mudaram (ou `forcar`): escreve-os (já, se houver pasta com licença; senão, quando houver). */
             async escrever(dados, forcar = false) {
               pendentes = dados; ultimosPedidos = dados;
