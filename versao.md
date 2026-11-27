@@ -4,6 +4,16 @@
 
 ---
 
+## v4.33.2 — 27 Nov 2026
+
+### 💾 Backup na pasta: «Deixar de usar a pasta»
+
+- **Pergunta antes**, como a Auditoria 5S: «Deixar de gravar o backup nesta pasta? O ficheiro que já lá está não é apagado.»
+- **Limpa o que era da pasta esquecida:** o último erro, a hora da última gravação e a versão gravada por esta página. Antes, ao escolher outra pasta, podia ficar à vista um erro ou uma hora de gravação da pasta antiga até à gravação seguinte. Igual ao supermercados (3.46.0)
+- **Testes:** `e2e/backup-pasta.e2e.js` (recusar não larga a pasta; aceitar larga-a e limpa o estado)
+
+---
+
 ## v4.33.1 — 24 Nov 2026
 
 ### 📟 Painel e-ink: escritor actualizado

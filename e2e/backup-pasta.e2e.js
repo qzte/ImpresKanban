@@ -126,6 +126,35 @@ describe('Backup na pasta partilhada', () => {
         }
     });
 
+    // v4.33.2: pergunta antes, como a Auditoria 5S, e limpa o estado da pasta esquecida.
+    test('«Deixar de usar a pasta» pergunta; recusar mantém a pasta, aceitar larga-a e limpa o estado', async () => {
+        const { context, page, erros } = await abrirApp(browser, url, {
+            storage: { ...REFERENCIAS, kanban_registos: [criarRegisto(1, { data: hoje })] },
+        });
+        try {
+            await pastaFalsa(page);
+            await page.evaluate(() => document.getElementById('btnBackupPasta').click());
+            await page.waitForFunction(n => !!window.__PASTA.raiz[n], FICHEIRO);
+            await page.waitForFunction(() => backupPasta.estado().gravadoEm !== null);
+            let resposta = false, perguntas = 0;
+            page.on('dialog', d => { perguntas++; assert.match(d.message(), /não é apagado/); resposta ? d.accept() : d.dismiss(); });
+            await page.evaluate(() => document.getElementById('btnBackupPastaOff').click());
+            await page.waitForTimeout(300);
+            assert.equal(perguntas, 1);
+            assert.equal(await page.evaluate(() => backupPasta.estado().estado), 'ok');
+            resposta = true;
+            await page.evaluate(() => document.getElementById('btnBackupPastaOff').click());
+            await page.waitForFunction(() => backupPasta.estado().estado === 'sem');
+            assert.equal(perguntas, 2);
+            const e = await page.evaluate(() => { const x = backupPasta.estado(); return { gravadoEm: x.gravadoEm, erro: x.erro, mudou: x.mudou }; });
+            assert.deepEqual(e, { gravadoEm: null, erro: '', mudou: null });
+            assert.match(await page.locator('#backupPastaEstado').textContent(), /Nenhuma pasta/);
+            assert.deepEqual(erros, []);
+        } finally {
+            await context.close();
+        }
+    });
+
     test('«Gravar por cima…» pergunta; se se recusa, a pasta não muda', async () => {
         const deOutra = JSON.stringify({ versao: '4.31.0', dataBackup: '2026-09-22T10:00:00.000Z', updatedAt: '2026-09-22T10:00:00.000Z', registos: [], totalRegistos: 0, totalKanbans: 0 });
         const { context, page } = await abrirApp(browser, url, { storage: { ...REFERENCIAS, kanban_registos: [criarRegisto(1, { data: hoje })] } });
