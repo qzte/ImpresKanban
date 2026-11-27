@@ -142,6 +142,10 @@ Antes de substituir o ficheiro, a versão que lá estava fica em `copias-backup/
 
 Está em `criarPastaBackup()` e `criarBackupAutomatico()` (`index.html`); a mecânica é a da app *supermercados* (`src/app/nucleo/pasta-backup.js`), copiada e adaptada porque esta app é um único `index.html`. A importação do JSON é `importarBackupTexto()`, partilhada com o backup da pasta.
 
+**Deixar de usar a pasta** larga-a neste browser; o ficheiro e as cópias que lá estão não são apagados. Desde a v4.33.2 pergunta antes, como a Auditoria 5S, e limpa também o que era dessa pasta (o último erro, a hora da última gravação e a versão gravada pela app), para não ficar à vista ao escolher outra.
+
+O supermercados (3.46.0) foi buscar daqui a gravação logo numa pasta sem backup e o «Deixar de usar esta pasta»; a limpeza da v4.33.2 veio de lá. Ao mudar uma regra (conflitos, cópias, prazos, vigia), ver se se repete no supermercados e na Auditoria 5S.
+
 ---
 
 ## 🛠️ Requisitos Técnicos
