@@ -75,7 +75,7 @@
     </script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.33.1 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.33.2 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
 
            Histórico de versões: versao.md (o changelog que estava aqui
@@ -6632,7 +6632,7 @@
             },
             /** Deixar de usar a pasta (esquece-a neste browser). */
             async esquecer() {
-              handle = null;
+              handle = null; ultimaCopiaEm = null;
               try { await idb('readwrite', s => s.delete('pasta')); } catch (e) { /* nada a esquecer */ }
               mudar(suportado ? 'sem' : 'indisponivel');
             },
@@ -6819,7 +6819,12 @@
               if (ok) await verificar();
               return ok;
             },
-            esquecerPasta() { return pasta.esquecer().then(() => { mudou = null; emitir(); }); },
+            esquecerPasta() {
+                // Limpa também o erro, a hora da última gravação e a versão gravada por esta página: eram da pasta
+                // esquecida, e ficavam à vista (ou contavam) até à primeira gravação na pasta seguinte.
+                clearTimeout(timer);
+                return pasta.esquecer().then(() => { mudou = null; erro = ''; gravadoEm = null; propria = null; emitir(); });
+            },
             /** A pasta tem a versão destes dados (ou vai ter, na gravação automática que já está marcada)? */
             emDia() { return pasta.info().estado === 'ok' && auto && !mudou && !erro && !!base; },
             gravarAgora() { return gravar({ perguntar: true }); },
@@ -6888,7 +6893,11 @@
             const ao = (id, ev, f) => { const x = document.getElementById(id); if (x) x.addEventListener(ev, f); };
             ao('btnBackupPasta', 'click', () => { backupPasta.escolherPasta(); });
             ao('btnBackupPastaAgora', 'click', () => { backupPasta.gravarAgora(); });
-            ao('btnBackupPastaOff', 'click', () => { backupPasta.esquecerPasta(); });
+            ao('btnBackupPastaOff', 'click', () => {
+                // Pergunta antes, como a Auditoria 5S (v4.33.2).
+                if (!confirm('Deixar de gravar o backup nesta pasta? O ficheiro que já lá está não é apagado.')) return;
+                backupPasta.esquecerPasta();
+            });
             ao('btnBackupPastaAbrir', 'click', () => { backupPasta.abrirDaPasta(); });
             ao('btnBackupPastaPorCima', 'click', () => { backupPasta.gravarAgora(); });
             ao('chkBackupPastaAuto', 'change', ev => backupPasta.setAuto(ev.target.checked));
