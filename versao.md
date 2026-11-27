@@ -4,6 +4,18 @@
 
 ---
 
+## v4.34.0 — 27 Nov 2026
+
+### 📟 Painel e-ink: avisa quando não grava, e reativa a licença com um clique
+
+- **Faixa no topo** («Sem acesso de gravação à pasta «X»: o painel não recebe dados desta app…» ou «Não foi possível gravar…» com a razão), só enquanto o problema dura, com o botão «Dar acesso» / «Escolher a pasta». Antes, só mudava o texto do botão em «Gestão dos Dados».
+- **Um clique em qualquer sítio** da app volta a pedir a licença da pasta (o escritor ouve-o) e grava logo o que ficou por gravar. Antes, só o primeiro `pointerdown` por abertura, tratado pela app; agora é o escritor (cópia da v1.27.0 de qzte/e-ink_panel), igual nas três apps.
+- Dada a licença, regrava sempre, mesmo com os dados iguais: o `gerado` fica de hoje e o painel não dá a app como parada.
+- O escritor confirma a licença a cada `escrever()`, mesmo sem dados novos: a perda dá-se a conhecer logo.
+- **Testes:** `e2e/painel.e2e.js` (faixa, clique que reativa, erro ao gravar).
+
+---
+
 ## v4.33.2 — 27 Nov 2026
 
 ### 💾 Backup na pasta: «Deixar de usar a pasta»
