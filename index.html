@@ -75,7 +75,7 @@
     </script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.33.2 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.34.0 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
 
            Histórico de versões: versao.md (o changelog que estava aqui
@@ -1217,6 +1217,31 @@
             flex: 1;
         }
 
+        /* v4.34.0: o painel e-ink não está a receber dados (pasta sem licença ou erro ao gravar). Faixa fina em fluxo, só enquanto dura. */
+        .painel-aviso {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: var(--space-md);
+            padding: 0.4rem var(--space-lg);
+            background: #FFF7ED;
+            border-bottom: 1px solid #FED7AA;
+            color: #7C2D12;
+            font-family: var(--font-body);
+            font-size: 0.85rem;
+        }
+        .painel-aviso-btn {
+            padding: 0.15rem 0.7rem;
+            background: #FFFFFF;
+            color: #7C2D12;
+            border: 1px solid #C2410C88;
+            border-radius: var(--radius-sm);
+            font-family: var(--font-body);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
         .sw-update-banner-btn {
             flex-shrink: 0;
             padding: var(--space-xs) var(--space-md);
@@ -1438,6 +1463,11 @@
         <span class="sw-update-banner-text">🔄 Nova versão disponível — recarregar para atualizar</span>
         <button type="button" class="sw-update-banner-btn" id="swUpdateReloadBtn">Recarregar</button>
         <button type="button" class="sw-update-banner-close" id="swUpdateDismissBtn" aria-label="Dispensar aviso">✕</button>
+    </div>
+    <!-- v4.34.0: aviso de que o painel e-ink não recebe dados desta app (mostrarPainel). -->
+    <div id="painelAviso" class="painel-aviso hidden" role="status">
+        <span id="painelAvisoTxt"></span>
+        <button type="button" class="painel-aviso-btn" id="painelAvisoBtn">Dar acesso</button>
     </div>
     <header>
         <div class="container" style="padding-top: 0; padding-bottom: 0;">
@@ -6123,6 +6153,8 @@
         //   painel.escrever(dados, true);           // regrava mesmo sem mudanças (p. ex. uma vez por dia)
         //   link «mudar» → painel.pedirAutor()     // (opcional) o nome deste computador, que o painel mostra; ou definirAutor(nome)
         //   criarEscritorPainel({ …, perguntar: atual => … })   // (opcional) pedir o nome com a caixa da app, e não com prompt()
+        //   info().aviso                            // texto pronto para mostrar quando a app NÃO consegue gravar na pasta ('' se está tudo bem)
+        //   criarEscritorPainel({ …, reativarAoToque: false })  // (opcional) não reativar a licença no 1.º clique em qualquer sítio da app
         //
         // O feed diz quem o gravou («autor»): o nome deste computador ou de quem o usa, perguntado uma vez ao escolher a pasta
         // e guardado no browser. Sem nome, um código «PC-XXXX» — distingue os computadores até alguém escrever o nome.
@@ -6132,7 +6164,7 @@
         // Se a pasta ainda não tem licença, guarda os dados e escreve-os quando a licença for dada.
         // ─────────────────────────────────────────────────────────────────────────────
 
-        function criarEscritorPainel({ app, titulo, versaoApp = '', perguntar: perguntarApp = null }) {
+        function criarEscritorPainel({ app, titulo, versaoApp = '', perguntar: perguntarApp = null, reativarAoToque = true }) {
           if (!/^[a-z0-9-]{1,40}$/.test(app)) throw new Error('criarEscritorPainel: «app» inválido');
           const FICHEIRO = `${app}.painel.json`;
           const IDB = `painel-feed:${app}`, LOJA = 'kv', CHAVE = 'pasta', CHAVE_AUTOR = 'autor';
@@ -6141,8 +6173,26 @@
           let pendentes = null, ultimoTexto = '', aEscrever = null, ultimosPedidos = null, autor = '';
           const ouvintes = new Set();
           const avisar = () => { for (const f of ouvintes) { try { f(info()); } catch (e) { /* um ouvinte não estraga os outros */ } } };
-          const mudar = (novo, msg = '') => { estado = novo; erro = msg; avisar(); };
-          const info = () => ({ estado, erro, pasta: handle?.name || '', ficheiro: FICHEIRO, escritoEm, autor });
+          const mudar = (novo, msg = '') => { estado = novo; erro = msg; novo === 'licenca' ? armar() : desarmar(); avisar(); };
+          // O aviso de que o painel NÃO está a receber dados desta app: só nos estados 'licenca' e 'erro' ('sem' e 'indisponivel' não são avarias).
+          const aviso = () => estado === 'licenca'
+            ? `Sem acesso de gravação à pasta «${handle?.name || ''}»: o painel não recebe dados desta app. ${reativarAoToque ? 'Clique em qualquer sítio da app para dar acesso.' : 'Dê acesso à pasta.'}`
+            : estado === 'erro' ? `Não foi possível gravar na pasta «${handle?.name || ''}»: ${erro || 'erro desconhecido'}` : '';
+          const info = () => ({ estado, erro, pasta: handle?.name || '', ficheiro: FICHEIRO, escritoEm, autor, aviso: aviso() });
+
+          // Sem licença (o browser volta a pedi-la ao reabrir a app), o 1.º clique em qualquer sítio da app pede-a de novo — um passo
+          // só, sem ir à procura do botão. Uma vez por vez: se for recusada, não insiste (o botão «Dar acesso» continua lá).
+          let aoToque = null;
+          function armar() {
+            if (!reativarAoToque || aoToque || typeof document === 'undefined') return;
+            aoToque = () => { desarmar(); darAcesso(); };
+            document.addEventListener('click', aoToque, true);
+          }
+          function desarmar() {
+            if (!aoToque) return;
+            document.removeEventListener('click', aoToque, true);
+            aoToque = null;
+          }
           const PERGUNTA = 'Nome deste computador ou de quem o usa (aparece no painel e-ink, para se saber a quem perguntar):';
 
           function idb(modo, fn) {
@@ -6202,6 +6252,21 @@
             const r = await perguntar(autor);
             if (r !== null && r !== undefined) await definirAutor(r);
             return autor;
+          }
+
+          // Um clique no botão e o clique ouvido pela app chegam juntos: um só pedido ao browser.
+          let aPedir = null;
+          function darAcesso() {
+            if (!handle) return Promise.resolve(false);
+            return aPedir || (aPedir = (async () => {
+              const ok = await permissao(true) === 'granted';
+              if (ok) {
+                // Esteve sem gravar: regrava mesmo com os dados iguais, para o «gerado» ficar de hoje (e o painel não a dar como parada).
+                ultimoTexto = ''; if (!pendentes && ultimosPedidos) pendentes = ultimosPedidos;
+                mudar('ok'); await despejar();
+              }
+              return ok;
+            })().finally(() => { aPedir = null; }));
           }
 
           async function gravar(texto) {
@@ -6264,12 +6329,7 @@
               return true;
             },
             /** Voltar a dar licença à pasta lembrada (de um clique). */
-            async darAcesso() {
-              if (!handle) return false;
-              const ok = await permissao(true) === 'granted';
-              if (ok) { mudar('ok'); await despejar(); }
-              return ok;
-            },
+            darAcesso,
             /** Deixar de escrever para o painel (esquece a pasta). */
             async esquecer() {
               handle = null; pendentes = null; ultimosPedidos = null; ultimoTexto = '';
@@ -6284,6 +6344,8 @@
             async escrever(dados, forcar = false) {
               pendentes = dados; ultimosPedidos = dados;
               if (forcar) ultimoTexto = '';      // regrava mesmo que os dados sejam iguais (p. ex. uma vez por dia: o «gerado» fica de hoje)
+              // Mesmo sem nada de novo para gravar, vê se a licença ainda vale: assim a perda dá-se a conhecer logo, e não só na próxima alteração.
+              if (estado === 'ok' && await permissao(false) !== 'granted') { mudar('licenca'); return; }
               if (estado === 'ok') await despejar();
             },
           };
@@ -6386,6 +6448,13 @@
             const hora = i.escritoEm ? new Date(i.escritoEm).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : '';
             btn.dataset.estado = i.estado;
             btn.disabled = i.estado === 'indisponivel';
+            // v4.34.0: sem gravar (licença perdida, erro), uma faixa no topo avisa; o botão serve se o clique-em-qualquer-sítio for recusado.
+            const faixa = document.getElementById('painelAviso');
+            if (faixa) {
+                faixa.classList.toggle('hidden', !i.aviso);
+                document.getElementById('painelAvisoTxt').textContent = i.aviso ? '📟 ' + i.aviso : '';
+                document.getElementById('painelAvisoBtn').textContent = i.estado === 'licenca' ? 'Dar acesso' : 'Escolher a pasta';
+            }
             btn.textContent = i.estado === 'licenca' ? 'Dar acesso à pasta' : i.estado === 'ok' ? 'Escolher outra pasta' : 'Escolher pasta';
             // v4.33.0: quem grava — o nome deste computador, pedido ao escolher a pasta (sem nome, um código PC-XXXX).
             const quem = document.getElementById('painelQuem'), autor = document.getElementById('painelAutor');
@@ -6426,22 +6495,18 @@
         function ligarPainelEink() {
             painelEink.subscrever(mostrarPainel);
             const btn = document.getElementById('btnPainel');
-            if (btn) btn.addEventListener('click', () => {
+            const acaoPainel = () => {
                 const acao = painelEink.info().estado === 'licenca' ? painelEink.darAcesso() : painelEink.escolher();
                 acao.then(() => painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro, universoKanbans)));
-            });
+            };
+            if (btn) btn.addEventListener('click', acaoPainel);
+            document.getElementById('painelAvisoBtn')?.addEventListener('click', acaoPainel);
             const btnAutor = document.getElementById('btnPainelAutor');
             if (btnAutor) btnAutor.addEventListener('click', () => painelEink.pedirAutor());
             painelEink.iniciar().then(() => painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro, universoKanbans)));
-            // v4.32.1: ao reabrir, o browser pede licença outra vez para gravar na pasta e só deixa pedi-la num gesto do utilizador.
-            // Sem isto o feed ficava com os dados do último dia em que a licença foi dada (na segunda, os de sexta) até alguém
-            // achar o botão «Dar acesso à pasta». Agora o primeiro clique na app pede-a (uma vez por abertura; recusada, fica o botão).
-            let licencaPedida = false;
-            document.addEventListener('pointerdown', () => {
-                if (licencaPedida || painelEink.info().estado !== 'licenca') return;
-                licencaPedida = true;
-                painelEink.darAcesso().then(ok => ok && painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro, universoKanbans), true));
-            }, true);
+            // v4.34.0: ao reabrir, o browser pede licença outra vez para gravar na pasta e só a deixa pedir num gesto do utilizador.
+            // Desde a v4.32.1 o 1.º clique na app pedia-a; agora é o próprio escritor (v1.27.0) que o ouve e, dada a licença, regrava
+            // sempre (o «gerado» fica de hoje). Recusada, fica o botão «Dar acesso» na faixa do topo.
             // «Hoje» e «7 dias» mudam com o dia, mesmo sem registos novos.
             setInterval(() => painelEink.escrever(dadosPainelKanban(registos, new Date(), descricaoTipoErro, universoKanbans)), 10 * 60 * 1000);
             // Envio diário às 12h nos dias úteis (com a app aberta; se for aberta depois das 12h, envia nessa altura).

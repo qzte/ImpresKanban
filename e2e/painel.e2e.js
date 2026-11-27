@@ -20,12 +20,14 @@ after(async () => {
 async function pastaFalsa(page) {
     await page.evaluate(() => {
         const ficheiros = {};
-        window.__PASTA = { ficheiros, escritas: 0 };
+        let licenca = 'granted';
+        window.__PASTA = { ficheiros, escritas: 0, pedidos: 0, licenca(v) { licenca = v; } };
         const handle = {
             kind: 'directory', name: 'partilhada',
-            async queryPermission() { return 'granted'; },
-            async requestPermission() { return 'granted'; },
+            async queryPermission() { return licenca; },
+            async requestPermission() { window.__PASTA.pedidos++; licenca = 'granted'; return 'granted'; },
             async getFileHandle(nome) {
+                if (licenca !== 'granted') throw new DOMException('Sem licença', 'NotAllowedError');
                 return { async createWritable() {
                     let t = '';
                     return { async write(x) { t += x; }, async close() { ficheiros[nome] = t; window.__PASTA.escritas++; }, async abort() {} };
@@ -95,6 +97,31 @@ describe('Painel e-ink (impreskanban.painel.json)', () => {
             await page.waitForFunction(() => (window.__PASTA.ficheiros['impreskanban.painel.json'] || '').includes('"autor":"Ana"'), null, { timeout: 10000 });
             assert.match(await page.locator('#painelAutor').textContent(), /Ana/);
             assert.deepEqual(erros, []);
+        } finally {
+            await context.close();
+        }
+    });
+
+    test('sem licença, a faixa avisa e um clique em qualquer sítio dá acesso e grava; sem pasta, não há faixa', async () => {
+        const { context, page } = await abrirApp(browser, url, { storage: { ...REFERENCIAS, kanban_registos: [criarRegisto(1, { data: '2026-09-23', qtdKanbans: 3, tipoErro: 'KB Perdido' })] } });
+        try {
+            await pastaFalsa(page);
+            assert.equal(await page.locator('#painelAviso').isVisible(), false, 'sem pasta não há aviso');
+            await page.evaluate(() => document.getElementById('btnPainel').click());
+            await page.waitForFunction(() => !!window.__PASTA.ficheiros['impreskanban.painel.json']);
+            assert.equal(await page.locator('#painelAviso').isVisible(), false, 'com licença não há aviso');
+            await page.evaluate(() => window.__PASTA.licenca('prompt'));
+            await page.evaluate(async () => {
+                registos.push({ uuid: 'novo-2', data: '2026-09-23', qtdKanbans: 4, tipoErro: 'KB Danificado', servico: 'UCIP' });
+                await salvarDados();
+            });
+            await page.locator('#painelAviso').waitFor({ state: 'visible', timeout: 10000 });
+            assert.match(await page.locator('#painelAvisoTxt').textContent(), /Sem acesso de gravação à pasta «partilhada»/);
+            assert.equal((await lerFeed(page)).dados.hoje, 3, 'ainda não gravou');
+            await page.locator('header h1').click();       // um clique em qualquer sítio
+            await page.waitForFunction(() => JSON.parse(window.__PASTA.ficheiros['impreskanban.painel.json']).dados.hoje === 7, null, { timeout: 10000 });
+            await page.locator('#painelAviso').waitFor({ state: 'hidden', timeout: 5000 });
+            assert.equal(await page.evaluate(() => window.__PASTA.pedidos), 1);
         } finally {
             await context.close();
         }
