@@ -56,14 +56,16 @@ O painel e-ink de 7.5″ (a app `painel.html` do repositório [qzte/e-ink_panel]
 uma página com os kanbans impressos: hoje, nos últimos 7 dias e no mês, por dia (14 dias), por tipo de erro e por serviço.
 Em **💾 Gestão dos Dados → 📟 Painel e-ink** escolhe-se uma **pasta partilhada** — a mesma das outras apps e do
 `painel.html` —, uma vez; a app grava lá `impreskanban.painel.json` sempre que os registos mudam. Ao reabrir a app o
-browser pode pedir licença outra vez («Dar acesso à pasta»). Só no Chrome ou no Edge de computador. O formato está em
+browser pode pedir licença outra vez: **o primeiro clique em qualquer sítio da app volta a dá-la** e grava logo. Se a app não
+conseguir gravar na pasta (licença perdida ou erro), uma **faixa no topo** diz porquê, com o botão «Dar acesso» / «Escolher a pasta»
+(desde a 4.34.0). Só no Chrome ou no Edge de computador. O formato está em
 `docs/09-formato-feed.md` do qzte/e-ink_panel; o resumo é calculado aqui (`dadosPainelKanban`).
 O ficheiro diz **quem o gravou** (`autor`): ao escolher a pasta, a app pergunta uma vez o nome deste computador (ou de quem o usa);
 sem nome, fica um código `PC-XXXX`. «Mudar nome», no mesmo cartão, muda-o. O painel mostra-o na lista e no rodapé das páginas.
-O escritor do painel (no `index.html`) é uma cópia do de qzte/e-ink_panel (desde a 4.33.1, a da v1.13.2 do painel; ao mudar
+O escritor do painel (no `index.html`) é uma cópia do de qzte/e-ink_panel (desde a 4.34.0, a da v1.27.0 do painel; ao mudar
 lá, copiar de novo e subir a versão). Nos dias úteis às 12h a app regrava o ficheiro mesmo sem alterações
 (`escrever(dados, true)`), para o painel não a dar como parada.
-Para o painel mostrar quem gravou, o `painel.html` tem de ser a v1.13.0 ou mais recente (hoje, a v1.13.2); com um
+Para o painel mostrar quem gravou, o `painel.html` tem de ser a v1.13.0 ou mais recente (hoje, a v1.27.0); com um
 `painel.html` mais antigo o campo é ignorado e o resto funciona igual. As versões das três apps e onde se muda o nome
 em cada uma estão no README do qzte/e-ink_panel («As apps»).
 
