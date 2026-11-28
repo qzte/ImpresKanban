@@ -34,7 +34,7 @@ const APP_SHELL = [
 ];
 
 const CDN_ASSETS = [
-    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+    'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js',
     'https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap'
@@ -43,6 +43,7 @@ const CDN_ASSETS = [
 // Origens externas cujas respostas podem ser guardadas em cache
 const CDN_HOSTS = [
     'cdnjs.cloudflare.com',
+    'cdn.sheetjs.com', // xlsx.js ≥ 0.19 só é publicado aqui (v4.34.1)
     'fonts.googleapis.com',
     'fonts.gstatic.com'
 ];

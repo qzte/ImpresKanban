@@ -13,7 +13,9 @@
            corre. Removê-la implica trocar os onclick/style inline por
            addEventListener/classes — feito à parte, fora do âmbito desta
            alteração.
-         - cdnjs.cloudflare.com e fonts.google*.com são os únicos domínios
+         - cdnjs.cloudflare.com (jsPDF), cdn.sheetjs.com (xlsx.js — o SheetJS
+           deixou de publicar no cdnjs/npm depois da 0.18.5, que tem CVEs;
+           v4.34.1) e fonts.google*.com são os únicos domínios
            externos a que a app acede (mesma lista que sw.js já trata como
            confiável em CDN_HOSTS, para pré-cache); tudo o resto fica de fora.
          - connect-src/object-src/base-uri/form-action ficam nas suas
@@ -27,7 +29,7 @@
            mesmos xlsx.js/jsPDF/autotable da CDN (verificados por hash). -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
-        script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
+        script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.sheetjs.com;
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         font-src 'self' https://fonts.gstatic.com;
         img-src 'self' data:;
@@ -60,8 +62,8 @@
     <script>
         window.CDN_LIBS = {
             xlsx: {
-                src: 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
-                integrity: 'sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw'
+                src: 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
+                integrity: 'sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT'
             },
             jspdf: {
                 src: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
@@ -75,7 +77,7 @@
     </script>
     <style>
         /* =====================================================
-           KANBAN KPI ANALYZER v4.34.0 - MEDICAL BRUTALIST DESIGN
+           KANBAN KPI ANALYZER v4.34.1 - MEDICAL BRUTALIST DESIGN
            Healthcare Professional Interface
 
            Histórico de versões: versao.md (o changelog que estava aqui
@@ -5777,8 +5779,10 @@
             div.textContent = String(str);
             // textContent -> innerHTML escapa & < > mas NÃO ' nem " — insuficiente
             // para valores interpolados dentro de atributos delimitados por aspas
-            // (ex.: onclick="fn('${escapeHTML(x)}')"), onde um apóstrofo no valor
-            // fecha o argumento e injeta JavaScript no atributo (v4.11.4)
+            // (ex.: title="${escapeHTML(x)}"), por isso escapam-se também (v4.11.4).
+            // ATENÇÃO: dentro de um handler (onclick="fn('${x}')") isto NÃO protege:
+            // o browser converte &#39; de volta em ' antes de correr o JavaScript.
+            // Aí só valores validados (números, datas AAAA-MM-DD) — ver isDataISO (v4.34.1)
             return div.innerHTML.replace(/'/g, '&#39;').replace(/"/g, '&#34;');
         }
         
@@ -7491,6 +7495,10 @@
             const kbPorDia = {};
             registosFiltrados.forEach(r => {
                 const data = r.data;
+                // Segurança (v4.34.1): a data entra num onclick="…('${data}')";
+                // só AAAA-MM-DD passa. Um backup/Excel com outra coisa no campo
+                // data injetava HTML/JavaScript ao abrir o dashboard
+                if (!isDataISO(data)) return;
                 if (!porDia[data])   porDia[data]   = 0;
                 if (!kbPorDia[data]) kbPorDia[data] = 0;
                 porDia[data]++;
@@ -7588,7 +7596,8 @@
             const porMes   = {};
             const kbPorMes = {};
             registosFiltrados.forEach(r => {
-                if (r.data) {
+                // Mesma razão do gráfico por dia: mesKey/ano entram num onclick (v4.34.1)
+                if (isDataISO(r.data)) {
                     const mesKey = r.data.substring(0, 7);
                     if (!porMes[mesKey])   porMes[mesKey]   = 0;
                     if (!kbPorMes[mesKey]) kbPorMes[mesKey] = 0;
@@ -8803,6 +8812,11 @@
             const cor = obterCorOrigem(origem);
             const rgb = hexParaRgb(cor.border);
             return `background: rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.15); color: ${cor.border};`;
+        }
+
+        /** true se `data` é uma string AAAA-MM-DD (o formato interno dos registos). */
+        function isDataISO(data) {
+            return typeof data === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data);
         }
 
         function formatarData(data) {

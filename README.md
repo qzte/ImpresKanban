@@ -2,7 +2,7 @@
 
 > Ferramenta web **100% offline** para controlo e análise de Kanban e gestão de KPI para equipas de manutenção de supermercados.
 
-**Versão atual:** 4.34.0 — servida como `index.html`
+**Versão atual:** 4.34.1 — servida como `index.html`
 
 ---
 
@@ -248,6 +248,7 @@ Consulte o ficheiro [`versao.md`](./versao.md) para o histórico completo.
 
 | Versão | Data | Destaque |
 |---|---|---|
+| **4.34.1** | 28 Nov 2026 | 🔒 Segurança: corrigido XSS no gráfico «Atividade por Dia/Mês» (datas inválidas de backups/Excel); xlsx.js 0.18.5 → 0.20.3 (CVE-2023-30533, CVE-2024-22363) |
 | **4.34.0** | 27 Nov 2026 | 📟 Painel e-ink: aviso quando não grava na pasta (faixa no topo) e o 1.º clique em qualquer sítio volta a dar a licença (escritor da v1.27.0 do painel) |
 | **4.33.2** | 27 Nov 2026 | 💾 Backup na pasta: «Deixar de usar a pasta» pergunta antes e limpa o estado da pasta esquecida |
 | **4.33.1** | 24 Nov 2026 | 📟 Painel e-ink: escritor actualizado (cópia da v1.13.2 de qzte/e-ink_panel) |

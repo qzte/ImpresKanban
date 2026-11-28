@@ -52,6 +52,28 @@ describe('Dashboard Operacional', () => {
     });
 });
 
+describe('Dashboard Operacional — segurança (v4.34.1)', () => {
+    test('uma data com HTML (backup/Excel manipulado) não corre script nos gráficos por dia/mês', async () => {
+        // A data começa por 2026-09-22 para cair dentro do filtro «ano atual»
+        // (comparação de strings) e chegar aos gráficos, como antes da correção
+        const payload = '2026-09-22"><img src=x onerror="window.__xss=1">';
+        const { context, page, erros } = await abrirApp(browser, url, {
+            storage: { ...REFERENCIAS, kanban_registos: [...seed(), criarRegisto(9, { data: payload })] },
+        });
+        try {
+            await page.click('#mainTabDashboards');
+            await page.click(`button[onclick="filtroRapido('anoAtual')"]`);
+            assert.equal(await page.evaluate(() => window.__xss), undefined, 'o onerror injetado não correu');
+            assert.equal(await page.locator('#opAtividadeDia img, #opAtividadeMes img').count(), 0);
+            // Os registos com data válida continuam nos gráficos
+            assert.ok((await page.innerHTML('#opAtividadeDia')).includes("('2026-09-01')"));
+            assert.deepEqual(erros, []);
+        } finally {
+            await context.close();
+        }
+    });
+});
+
 describe('Dashboard Gestão', () => {
     test('filtro de origem + filtroRapidoGestao/limparFiltroGestao', async () => {
         const { context, page, erros } = await abrirApp(browser, url, {
