@@ -9,12 +9,14 @@
 
 | Ficheiro | SHA-384 (= `integrity` em `index.html`) |
 |---|---|
-| `xlsx.full.min.js` | `vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw` |
+| `xlsx.full.min.js` (0.20.3) | `EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT` |
 | `jspdf.umd.min.js` | `JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk` |
 | `jspdf.plugin.autotable.min.js` | `vuyrTV5nkscLp1knFvt+FIHfKKzmROBq5reruhMRslauj54mW+l2B8b6szMN6lCL` |
 
-Foram obtidos da versão correspondente no [registo npm](https://registry.npmjs.org/)
-(`xlsx@0.18.5`, `jspdf@2.5.1`, `jspdf-autotable@3.5.31`) em vez da CDN
+O `xlsx.full.min.js` vem de `cdn.sheetjs.com` (a mesma URL de `index.html`):
+o SheetJS deixou de publicar no npm e no cdnjs depois da 0.18.5 (v4.34.1).
+Os outros dois foram obtidos da versão correspondente no [registo npm](https://registry.npmjs.org/)
+(`jspdf@2.5.1`, `jspdf-autotable@3.5.31`) em vez da CDN
 (`cdnjs.cloudflare.com`) porque nem todos os ambientes onde os testes correm
 (incluindo o desta sessão) têm acesso a essa CDN — o registo npm é mais
 consistentemente acessível. São o mesmo ficheiro: só a origem do download
@@ -24,7 +26,7 @@ muda, o conteúdo publicado é o mesmo em ambos.
 Referências, Exportar Dados e Relatórios PDF com as bibliotecas reais (não
 stubs), sob o Content-Security-Policy da app — sem depender da CDN estar
 acessível nem introduzir flakiness de rede no CI. `e2e/helpers.js`
-(`servirFixturesCDN`) intercepta os 3 pedidos para `cdnjs.cloudflare.com` e
+(`servirFixturesCDN`) intercepta os 3 pedidos às CDNs e
 responde com estes ficheiros; o resto da app continua inalterado, incluindo
 em produção — isto só existe para os testes.
 
@@ -34,7 +36,8 @@ com o novo `integrity`. Se não repetir, o teste falha com um erro de rede
 (a fixture antiga já não corresponde à URL nova) — não falha em silêncio.
 
 ```bash
-cd /tmp && npm pack xlsx@<versão> jspdf@<versão> jspdf-autotable@<versão>
+# xlsx.js: curl -O https://cdn.sheetjs.com/xlsx-<versão>/package/dist/xlsx.full.min.js
+cd /tmp && npm pack jspdf@<versão> jspdf-autotable@<versão>
 for f in *.tgz; do tar xzf "$f"; done
 openssl dgst -sha384 -binary package/dist/<ficheiro>.min.js | openssl base64 -A
 # comparar com o `integrity` em index.html; copiar para e2e/fixtures/cdn-libs/

@@ -4,6 +4,17 @@
 
 ---
 
+## v4.34.1 — 28 Nov 2026
+
+### 🔒 Segurança
+
+- **XSS no Dashboard Operacional corrigido.** Nos gráficos «Atividade por Dia» e «Atividade por Mês», a data de cada registo entrava sem escape num `onclick`. Um backup JSON (também o da pasta partilhada) ou um Excel com HTML no campo data corria JavaScript assim que o dashboard abria. Agora estes gráficos só usam datas `AAAA-MM-DD` (`isDataISO`); registos com outra coisa no campo data ficam fora destes dois gráficos.
+- **xlsx.js 0.18.5 → 0.20.3.** A 0.18.5 tem duas falhas ao ler ficheiros manipulados: *prototype pollution* (CVE-2023-30533) e bloqueio por expressão regular (CVE-2024-22363). O SheetJS deixou de publicar no cdnjs/npm, por isso passa a vir de `cdn.sheetjs.com` (CSP, `sw.js` e SRI atualizados).
+- O comentário de `escapeHTML` deixa claro que não protege valores dentro de handlers (`onclick="fn('…')"`).
+- **Testes:** `e2e/dashboards.e2e.js` (uma data com HTML não corre script); a fixture `e2e/fixtures/cdn-libs/xlsx.full.min.js` passa a ser a 0.20.3.
+
+---
+
 ## v4.34.0 — 27 Nov 2026
 
 ### 📟 Painel e-ink: avisa quando não grava, e reativa a licença com um clique

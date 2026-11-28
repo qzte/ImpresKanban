@@ -113,7 +113,7 @@ function criarRegisto(i, extra = {}) {
  * @param {boolean} [opcoes.aceitarDialogos] - aceitar confirm() abertos durante
  *   o próprio arranque (sem handler, o Playwright cancela-os)
  * @param {boolean} [opcoes.servirFixturesCDN] - responder aos 3 pedidos para
- *   cdnjs.cloudflare.com (xlsx.js, jsPDF, autotable) com os ficheiros locais
+ *   cdn.sheetjs.com (xlsx.js) e cdnjs.cloudflare.com (jsPDF, autotable) com os ficheiros locais
  *   em e2e/fixtures/cdn-libs/, em vez de os cortar como o resto da rede
  *   externa. Necessário para testar Importar/Exportar Excel e Relatórios PDF
  *   sem depender da CDN estar acessível (ver e2e/csp.e2e.js)
